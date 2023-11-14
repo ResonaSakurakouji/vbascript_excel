@@ -1,0 +1,308 @@
+Option Explicit
+Public Const ConfigTitleRangeLocation_str As String = "配!$1:$1"
+Public Const ChartBuilderSheetName_str As String = "中P"
+Public Const SummarySheetName_str As String = "汇总"
+Public Const ChartBuliderSourceLocation_str As String = "图源绝对位置"
+Public Const SummaryTableSourceLocation_str As String = "汇总图源绝对"
+Public Const SummaryTableSourceColumnCounts_str As String = "汇总图源列宽"
+Public Const SummaryTable2Location_str As String = "汇总粘贴至绝对"
+Public Const SummaryChartNameLocation_str As String = "汇总统计图名称"
+Public Const SummaryChart2Location_str As String = "汇总统计图粘贴至"
+Public Const OverviewKeywords_str As String = "概述："
+Public Const SummarySheetKeyFieldTitleLocation_str As String = "汇总!$C$1"
+Public Const SummaryClassOffsetRows_long As Long = 26
+
+
+
+Function GetConfigTitleRange(titleName As String) As Range
+    Dim configTitleRange As Range
+    Dim col_index As Long
+    Set configTitleRange = Range(ConfigTitleRangeLocation_str)
+    col_index = 1
+    Dim cell_i As Range
+    For Each cell_i In configTitleRange
+        If CStr(cell_i.Value) = titleName Then
+            Set GetConfigTitleRange = configTitleRange.Cells(1, col_index)
+            Exit Function
+        Else
+            col_index = col_index + 1
+        End If
+        If col_index > 16384 Then
+            On Error GoTo ErrorNA
+        End If
+    Next cell_i
+ErrorNA:
+    MsgBox titleName & Chr(10) & " -> Function@GetConfigTitleRange", , "结果不存在"
+End Function
+
+Function RangeDown2Blank(firstCell As Range) As Range
+    If CStr(firstCell.Value) = "" Then
+        On Error GoTo ErrorBlank
+    End If
+    Dim cellsCount As Long
+    cellsCount = 0
+    Dim targetCell As Range
+    Set targetCell = firstCell
+    While CStr(targetCell.Value) <> ""
+        cellsCount = cellsCount + 1
+        Set targetCell = targetCell.Offset(1, 0)
+    Wend
+    cellsCount = cellsCount - 1
+    Set RangeDown2Blank = Range(firstCell.Worksheet.Name & "!" & firstCell.Address & ":" & firstCell.Offset(cellsCount, 0).Address)
+    Exit Function
+ErrorBlank:
+    MsgBox firstCell.Value & Chr(10) & " -> Function@RangeDown2Blank", , "起始空单元格"
+End Function
+
+Function RangeExpand2Up(sourceRange As Range, targetRows As Long) As Range
+    targetRows = -1 * targetRows
+    sourceRange = sourceRange.Offset(targetRows, 0)
+    sourceRange = sourceRange.Resize(sourceRange.Rows.Count + targetRows, sourceRange.Columns.Count)
+    Set RangeExpand2Up = sourceRange
+    Exit Function
+End Function
+
+Function CopyAndPasteAsValue(targetCell As Range) As Integer
+    Dim sourceCell As Range, destinationCell As Range
+    Set sourceCell = targetCell.Offset(-1, 1)
+    Set destinationCell = targetCell
+    sourceCell.Copy
+    destinationCell.PasteSpecial Paste:=xlPasteValues
+    Application.CutCopyMode = False
+End Function
+
+Function FindDownByRowWithStartText(firstCell As Range, startText As String) As Range
+'不会返回自身；间隔超过1024会错误
+    Dim dataArr As Variant
+    dataArr = firstCell.Resize(1024, 1).Value
+    
+    Dim i As Long
+    For i = 1 To UBound(dataArr, 1)
+        Dim currentCellStr As String
+        currentCellStr = dataArr(i, 1)
+        
+        If Left(currentCellStr, Len(startText)) = startText Then
+            Set FindDownByRowWithStartText = firstCell.Offset(i - 1, 0)
+            Exit Function
+        End If
+    Next i
+End Function
+
+Function GetStartEndIndexOfText(searchStr As String, text As String) As Variant
+    Dim startPos As Integer
+    Dim endPos As Integer
+    Dim result(1 To 2) As Integer
+    startPos = InStr(text, searchStr)
+    endPos = startPos + Len(searchStr) - 1
+    result(1) = startPos
+    result(2) = endPos
+    GetStartEndIndexOfText = result
+    
+End Function
+
+Function FormatText_GS(targetCell As Range) As Integer
+    Dim tempText As String
+    Dim startPos As Integer
+    Dim endPos As Integer
+    Dim searchTexts(1 To 5) As String, i As Integer
+    tempText = targetCell.Value
+    
+    searchTexts(1) = "整体储备面积"
+    searchTexts(2) = "万平米，其中"
+    searchTexts(3) = "家土地使用人占到了整体土地储备面积的"
+    searchTexts(4) = "其中拿地面积最大的是"
+    searchTexts(5) = "，面积达到"
+    
+    targetCell.Font.Color = RGB(255, 0, 0)
+    targetCell.Characters(1, 25).Font.Color = RGB(0, 0, 0)
+    For i = 1 To (UBound(searchTexts) - LBound(searchTexts) + 1)
+        startPos = InStr(tempText, searchTexts(i))
+        If startPos > 0 Then
+            endPos = startPos + Len(searchTexts(i)) - 1
+            targetCell.Characters(startPos, Len(searchTexts(i))).Font.Color = RGB(0, 0, 0)
+        End If
+    Next i
+    FormatText_GS = 0
+End Function
+
+Function AutoPastepicture1() As Integer
+    Dim tablePicSourceLocationRange As Range, tablePicPasteLocationRange As Range, tableSourceColumnCountRange As Range
+    Set tablePicSourceLocationRange = RangeDown2Blank(GetConfigTitleRange(SummaryTableSourceLocation_str).Offset(1, 0))
+    Set tablePicPasteLocationRange = RangeDown2Blank(GetConfigTitleRange(SummaryTable2Location_str).Offset(1, 0))
+    Set tableSourceColumnCountRange = RangeDown2Blank(GetConfigTitleRange(SummaryTableSourceColumnCounts_str).Offset(1, 0))
+    Dim tablePicSourceLocationList(1 To 32) As Variant
+    Dim tablePicPasteLocationList(1 To 32) As Variant
+    Dim tablePicColumnCountList(1 To 32) As Variant
+    Dim i As Long
+    For i = 1 To 32
+        If CStr(tablePicSourceLocationRange.Cells(i, 1).Value) <> "" Then
+            tablePicSourceLocationList(i) = tablePicSourceLocationRange.Cells(i, 1).Value
+            tablePicPasteLocationList(i) = tablePicPasteLocationRange.Cells(i, 1).Value
+            tablePicColumnCountList(i) = tableSourceColumnCountRange.Cells(i, 1).Value
+        End If
+    Next i
+    
+    For i = 1 To 32
+        If CStr(tablePicSourceLocationList(i)) <> "" Then
+            Dim tablePicSourceRange As Range
+            Dim tablePic As Picture, debug1 As String
+            Set tablePicSourceRange = RangeDown2Blank(Range(CStr(tablePicSourceLocationList(i))))
+            Set tablePicSourceRange = tablePicSourceRange.Resize(tablePicSourceRange.Rows.Count, tablePicColumnCountList(i))
+            
+            tablePicSourceRange.Copy
+            Set tablePic = ThisWorkbook.Sheets(SummarySheetName_str).Pictures.Paste
+            With tablePic
+                .Left = ThisWorkbook.Sheets(SummarySheetName_str).Range(tablePicPasteLocationList(i)).Left
+                .Top = ThisWorkbook.Sheets(SummarySheetName_str).Range(tablePicPasteLocationList(i)).Top
+            End With
+        End If
+    Next i
+    AutoPastepicture1 = 0
+End Function
+
+Function AutoPastepicture2() As Integer
+    Dim chartPicNameLocationRange As Range, chartPicPasteLocationRange As Range, chartSheet As Worksheet
+    Set chartPicNameLocationRange = RangeDown2Blank(GetConfigTitleRange(SummaryChartNameLocation_str).Offset(1, 0))
+    Set chartPicPasteLocationRange = RangeDown2Blank(GetConfigTitleRange(SummaryChart2Location_str).Offset(1, 0))
+    Dim SummaryPicNameList(1 To 32) As Variant
+    Dim SummaryPicLocationList(1 To 32) As Variant
+    Dim i As Long
+    For i = 1 To 32
+        If CStr(chartPicNameLocationRange.Cells(i, 1).Value) <> "" Then
+            SummaryPicNameList(i) = chartPicNameLocationRange.Cells(i, 1).Value
+            SummaryPicLocationList(i) = chartPicPasteLocationRange.Cells(i, 1).Value
+        End If
+    Next i
+    Set chartSheet = ThisWorkbook.Sheets(ChartBuilderSheetName_str)
+    Dim chartPic As Picture
+    For i = 1 To 32
+        If CStr(SummaryPicNameList(i)) <> "" Then
+            Application.Wait Now + TimeValue("00:00:01")
+            chartSheet.ChartObjects(CStr(SummaryPicNameList(i))).Copy
+            Set chartPic = ThisWorkbook.Sheets(SummarySheetName_str).Pictures.Paste
+            With chartPic
+                .Left = ThisWorkbook.Sheets(SummarySheetName_str).Range(SummaryPicLocationList(i)).Left
+                .Top = ThisWorkbook.Sheets(SummarySheetName_str).Range(SummaryPicLocationList(i)).Top
+            End With
+        End If
+    Next i
+    AutoPastepicture2 = 0
+    Exit Function
+End Function
+
+Function AutoPastePicture3(KeyFields() As Variant) As Integer
+    Dim classTitle As Range, classRangeStart As Range, classRange As Range, chartSheet As Worksheet
+    Set classTitle = GetConfigTitleRange(ChartBuliderSourceLocation_str)
+    Set classRange = RangeDown2Blank(classTitle.Offset(1, 0))
+    Dim classNameList(1 To 32) As Variant
+    Dim i As Long, errorFlag As Boolean
+    For i = 1 To 32
+        If CStr(classRange(i, 1).Value) <> "" Then
+            classNameList(i) = classRange(i, 1).Value
+        End If
+    Next i
+    Set chartSheet = ThisWorkbook.Sheets(ChartBuilderSheetName_str)
+    Dim chartPic As Picture
+    For i = 1 To 32
+        If CStr(classNameList(i)) <> "" Then
+            errorFlag = False
+            On Error GoTo WithoutTable
+                 chartSheet.ChartObjects(CStr(classNameList(i) & "统计表")).Copy
+                 '等着吧，没写完呢
+        End If
+    Next i
+    AutoPastePicture3 = 0
+    Exit Function
+WithoutTable:
+    errorFlag = True
+    Resume Next
+End Function
+
+Sub 制作图表()
+    Dim chartSheet As Worksheet
+    Set chartSheet = ThisWorkbook.Sheets(ChartBuilderSheetName_str)
+    Dim classTitle As Range, classRangeStart As Range, classRange As Range
+    Set classTitle = GetConfigTitleRange(ChartBuliderSourceLocation_str)
+    Set classRangeStart = classTitle.Offset(1, 0)
+    Dim classRangeStartSheetStr As String, classRangeStartCellStr As String
+    Dim classRangeStrS() As String
+    classRangeStrS = Split(classRangeStart, "!")
+    classRangeStartSheetStr = classRangeStrS(0)
+    classRangeStartCellStr = classRangeStrS(1)
+    Set classRange = RangeDown2Blank(classRangeStart)
+    Dim classificationAddress As Range
+    Dim forEachCount As Long
+    forEachCount = 0
+    For Each classificationAddress In classRange
+        Dim sourceRange As Range
+        Dim classificationAddressStr As String
+        classificationAddressStr = CStr(classificationAddress.Value)
+        Set sourceRange = Range(classificationAddressStr)
+        Set sourceRange = RangeDown2Blank(sourceRange)
+        Set sourceRange = sourceRange.Resize(sourceRange.Rows.Count, sourceRange.Columns.Count + 2)
+        Dim classificationChart As ChartObject
+        Dim topOffset As Long
+        topOffset = forEachCount * 310 + 750
+        If sourceRange.Rows.Count > 20 Then
+            Set classificationChart = chartSheet.ChartObjects.Add(Left:=0, Top:=topOffset, Width:=1310, Height:=300)
+        Else
+            Set classificationChart = chartSheet.ChartObjects.Add(Left:=600, Top:=topOffset, Width:=710, Height:=300)
+        End If
+        classificationChart.Name = CStr(classificationAddress.Offset(0, -1).Value) & "柱状图"
+        classificationChart.Chart.SetSourceData source:=sourceRange
+        classificationChart.Chart.SetElement (msoElementDataLabelOutSideEnd)
+        classificationChart.Chart.ChartType = xlColumnClustered
+        classificationChart.Chart.FullSeriesCollection(1).ChartType = xlColumnClustered
+        classificationChart.Chart.FullSeriesCollection(1).AxisGroup = 1
+        classificationChart.Chart.FullSeriesCollection(2).ChartType = xlLine
+        classificationChart.Chart.FullSeriesCollection(2).AxisGroup = 1
+        classificationChart.Chart.FullSeriesCollection(2).AxisGroup = 2
+        classificationChart.Chart.SetElement (msoElementChartTitleAboveChart)
+        classificationChart.Chart.SetElement (msoElementLegendBottom)
+        If sourceRange.Rows.Count > 90 Then
+            classificationChart.Chart.FullSeriesCollection(2).DataLabels.Delete
+        End If
+        classificationChart.Chart.ChartTitle.text = (CStr(classificationAddress.Offset(0, -1).Value) & "分布")
+        If sourceRange.Rows.Count <= 20 Then
+            Dim tablePicSourceRange As Range
+            Dim tablePic As Picture
+            Set tablePicSourceRange = sourceRange
+            tablePicSourceRange.Copy
+            Set tablePic = ThisWorkbook.Sheets(ChartBuilderSheetName_str).Pictures.Paste
+            With tablePic
+                .Left = 0
+                .Top = topOffset
+                .Height = 300
+                .Name = (CStr(classificationAddress.Offset(0, -1).Value) & "统计表")
+            End With
+            If tablePic.Width > 500 Then
+                With tablePic
+                    .Width = 500
+                End With
+            End If
+        End If
+        forEachCount = forEachCount + 1
+    Next classificationAddress
+End Sub
+
+Sub 寻找并格式化概述文本()
+    Dim startCell As Range, targetCell As Range, forCount As Integer
+    Set startCell = Range(SummarySheetKeyFieldTitleLocation_str)
+    Set targetCell = startCell
+    For forCount = 1 To (RangeDown2Blank(GetConfigTitleRange(ChartBuliderSourceLocation_str)).Rows.Count - 1)
+        Set targetCell = FindDownByRowWithStartText(targetCell, OverviewKeywords_str)
+        Dim rubbish As Integer
+        rubbish = CopyAndPasteAsValue(targetCell)
+        rubbish = FormatText_GS(targetCell)
+        Set targetCell = targetCell.Offset(1, 0)
+    Next forCount
+End Sub
+Sub 一键粘贴图片()
+    'Debug.Print ("AutoPastepicture1:" & CStr(AutoPastepicture1))
+    'Debug.Print ("AutoPastepicture2:" & CStr(AutoPastepicture2))
+    Debug.Print ("AutoPastepicture3:" & CStr(AutoPastePicture3))
+End Sub
+
+Sub 一键兼容性保存()
+
+End Sub
