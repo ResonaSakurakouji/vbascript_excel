@@ -368,12 +368,10 @@ Sub 一键兼容性保存()
             Exit For
         End If
     Next ws
-    For Each ws In wb.Sheets
-        If ws.Name = "Sheet1" Then
-            ws.Delete
-            Exit For
-        End If
-    Next ws
+    Sheets("Sheet1").Select
+    Application.DisplayAlerts = False
+    ActiveWindow.SelectedSheets.Delete
+    Application.DisplayAlerts = True
     For Each ws In wb.Sheets
         If ws.Name = DetailSheetName_str Then
             ws.Copy After:=newWb.Sheets(newWb.Sheets.Count)
@@ -389,11 +387,20 @@ Sub 一键兼容性保存()
             Next ws
         End If
     Next i
+    Sheets(SummarySheetName_str).Select
     
+    Dim links As Variant
+    links = newWb.LinkSources(Type:=xlLinkTypeExcelLinks)
+    
+    If Not IsEmpty(links) Then
+        Dim j As Long
+        For j = 1 To UBound(links)
+            ActiveWorkbook.BreakLink Name:=links(j), Type:=xlLinkTypeExcelLinks
+        Next j
+    End If
     newWb.SaveAs Range(WORKBOOK_NAME_LOCATION_str).Value & ".xlsx"
-    newWb.Close
-    
-    ' 释放对象引用
+    'newWb.Close
+
     Set newWb = Nothing
     Set wb = Nothing
 End Sub
