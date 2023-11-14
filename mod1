@@ -362,26 +362,26 @@ Sub 一键兼容性保存()
     Next i
     Set wb = ThisWorkbook
     Set newWb = Workbooks.Add
+    For Each ws In wb.Sheets
+        If ws.Name = SummarySheetName_str Then
+            ws.Copy After:=newWb.Sheets(newWb.Sheets.Count)
+            Exit For
+        End If
+    Next ws
+    For Each ws In wb.Sheets
+        If ws.Name = "Sheet1" Then
+            ws.Delete
+            Exit For
+        End If
+    Next ws
+    For Each ws In wb.Sheets
+        If ws.Name = DetailSheetName_str Then
+            ws.Copy After:=newWb.Sheets(newWb.Sheets.Count)
+            Exit For
+        End If
+    Next ws
     For i = 1 To 32
         If CStr(saveSheetNameRange(i, 1).Value) <> "" Then
-            For Each ws In wb.Sheets
-                If ws.Name = SummarySheetName_str Then
-                    ws.Copy After:=newWb.Sheets(newWb.Sheets.Count)
-                    Exit For
-                End If
-            Next ws
-            For Each ws In wb.Sheets
-                If ws.Name = "Sheet1" Then
-                    ws.Delete
-                    Exit For
-                End If
-            Next ws
-            For Each ws In wb.Sheets
-                If ws.Name = DetailSheetName_str Then
-                    ws.Copy After:=newWb.Sheets(newWb.Sheets.Count)
-                    Exit For
-                End If
-            Next ws
             For Each ws In wb.Sheets
                 If ws.Name = CStr(saveSheetNameRange(i, 1).Value) Then
                     ws.Copy After:=newWb.Sheets(newWb.Sheets.Count)
