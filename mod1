@@ -68,6 +68,9 @@ End Function
 
 Function CopyAndPasteAsValue(targetCell As Range) As Integer
     Dim sourceCell As Range, destinationCell As Range
+    If targetCell Is Nothing Then
+        Exit Function
+    End If
     Set sourceCell = targetCell.Offset(-1, 1)
     Set destinationCell = targetCell
     sourceCell.Copy
@@ -83,7 +86,7 @@ Function FindDownByRowWithStartText(firstCell As Range, startText As String) As 
     Dim i As Long
     For i = 1 To UBound(dataArr, 1)
         Dim currentCellStr As String
-        currentCellStr = dataArr(i, 1)
+        currentCellStr = CStr(dataArr(i, 1))
         
         If Left(currentCellStr, Len(startText)) = startText Then
             Set FindDownByRowWithStartText = firstCell.Offset(i - 1, 0)
@@ -108,8 +111,15 @@ Function FormatText_GS(targetCell As Range) As Integer
     Dim tempText As String
     Dim startPos As Integer
     Dim endPos As Integer
+    Dim errorFlag As Boolean
     Dim searchTexts(1 To 5) As String, i As Integer
-    tempText = targetCell.Value
+    errorFlag = False
+    On Error GoTo ErrorText
+        tempText = targetCell.Value
+    
+    If errorFlag = True Then
+        Exit Function
+    End If
     
     searchTexts(1) = "整体储备面积"
     searchTexts(2) = "万平米，其中"
@@ -127,6 +137,8 @@ Function FormatText_GS(targetCell As Range) As Integer
         End If
     Next i
     FormatText_GS = 0
+ErrorText:
+    errorFlag = True
 End Function
 
 Function AutoPastePicture1() As Integer
@@ -229,26 +241,96 @@ Function AutoPastePicture3() As Integer
                 End With
             End If
             Application.Wait Now + TimeValue("00:00:01")
-            chartSheet.ChartObjects(CStr(classNameList(i) & "柱状图")).Copy
-            Set chartPic = ThisWorkbook.Sheets(SummarySheetName_str).Pictures.Paste
-            If noTableFlag = False Then
-                With chartPic
-                    .Left = ThisWorkbook.Sheets(SummarySheetName_str).Range(currentCell.Offset(0, 10).Address).Left
-                    .Top = ThisWorkbook.Sheets(SummarySheetName_str).Range(currentCell.Offset(0, 10).Address).Top
-                End With
-            Else
-                With chartPic
-                    .Left = ThisWorkbook.Sheets(SummarySheetName_str).Range(currentCell.Address).Left
-                    .Top = ThisWorkbook.Sheets(SummarySheetName_str).Range(currentCell.Address).Top
-                End With
+            Dim errorNAFlag As Boolean
+            errorNAFlag = False
+            On Error GoTo chartNA
+                chartSheet.ChartObjects(CStr(classNameList(i) & "柱状图")).Copy
+            If errorNAFlag = False Then
+                Set chartPic = ThisWorkbook.Sheets(SummarySheetName_str).Pictures.Paste
+                If noTableFlag = False Then
+                    With chartPic
+                        .Left = ThisWorkbook.Sheets(SummarySheetName_str).Range(currentCell.Offset(0, 10).Address).Left
+                        .Top = ThisWorkbook.Sheets(SummarySheetName_str).Range(currentCell.Offset(0, 10).Address).Top
+                    End With
+                Else
+                    With chartPic
+                        .Left = ThisWorkbook.Sheets(SummarySheetName_str).Range(currentCell.Address).Left
+                        .Top = ThisWorkbook.Sheets(SummarySheetName_str).Range(currentCell.Address).Top
+                    End With
+                End If
             End If
+            errorNAFlag = False
         End If
     Next i
     AutoPastePicture3 = 0
     Exit Function
+chartNA:
+    errorNAFlag = True
+End Function
+Function DeleteRowIfs(byColumnName As String, bySheetName As String, searchText As String) As Integer
+    Dim fieldTitleRange As Range
+    Dim col_index As Long
+    Set fieldTitleRange = Range(bySheetName & "!$1:$1")
+    col_index = 1
+    Dim cell_i As Range, byColumn As Range
+    For Each cell_i In fieldTitleRange
+        If CStr(cell_i.Value) = titleName Then
+            Set byColumn = RangeDown2Blank(configTitleRange.Cells(1, col_index).Offset(1, 0))
+        Else
+            col_index = col_index + 1
+        End If
+        If col_index > 16384 Then
+            On Error GoTo ErrorNA
+        End If
+    Next cell_i
+    For Each cell_i In byColumn
+        If cell_i.Value <> searchText Then
+            Sheets(bySheetName).Rows(i).Delete
+        End If
+    Next cell_i
+    DeleteRowIfs = 0
+ErrorNA:
+    MsgBox titleName & Chr(10) & " -> Function@DeleteRowIfs", , "结果不存在"
+    Exit Function
 End Function
 
+Sub 一键拆分明细()
+    Dim wb As Workbook
+    Dim ws As Worksheet
+    Dim saveSheetNameRange As Range
+    Dim saveSheetName(1 To 32) As String
+    Set saveSheetNameRange = RangeDown2Blank(GetConfigTitleRange(KeyFiledsTitleLocationShort_str))
+    
+    Dim classFullNameRange As Range
+    Set classFullName = RangeDown2Blank(GetConfigTitleRange(KeyFiledsTitleLocation_str).Offset(1, 0))
+    Dim i As Long, b As Boolean, rubbish As Integer
+    b = False
+    For i = 1 To 32
+        If CStr(saveSheetNameRange(i, 1).Value) <> "" Then
+            saveSheetName(i) = CStr(saveSheetNameRange(i, 1).Value)
+        End If
+    Next i
+    Set wb = ThisWorkbook
+    For i = 1 To 32
+        If CStr(saveSheetNameRange(i, 1).Value) <> "" Then
+            For Each ws In wb.Sheets
+                If ws.Name = CStr(saveSheetNameRange(i, 1).Value) Then
+                    b = True
+                End If
+            Next ws
+            If b = True Then
+                b = True
+            Else
+                wb.Sheets(DetailSheetName_str).Copy After:=newWb.Sheets(newWb.Sheets.Count - 7)
+                
+                rubbish = DeleteRowIfs("土地用途整理", DetailSheetName_str, classFullNameRange(i, 1).Value)
+            End If
+        End If
+    Next i
+End Sub
+
 Sub 制作图表()
+    ThisWorkbook.Worksheets(ChartBuilderSheetName_str).Range("A1").Select
     Dim chartSheet As Worksheet
     Set chartSheet = ThisWorkbook.Sheets(ChartBuilderSheetName_str)
     Dim classTitle As Range, classRangeStart As Range, classRange As Range
@@ -285,6 +367,13 @@ Sub 制作图表()
                 Exit For
             End If
         Next cht
+        Dim shp As Shape
+        For Each shp In chartSheet.Shapes
+            If shp.Name = CStr(classificationAddress.Offset(0, -1).Value) & "统计表" Then
+                shp.Delete
+                Exit For
+            End If
+        Next shp
         classificationChart.Name = CStr(classificationAddress.Offset(0, -1).Value) & "柱状图"
         classificationChart.Chart.SetSourceData source:=sourceRange
         classificationChart.Chart.SetElement (msoElementDataLabelOutSideEnd)
@@ -306,13 +395,7 @@ Sub 制作图表()
             Set tablePicSourceRange = sourceRange
             tablePicSourceRange.Copy
             Set tablePic = ThisWorkbook.Sheets(ChartBuilderSheetName_str).Pictures.Paste
-            Dim shp As Shape
-            For Each shp In chartSheet.Shapes
-                If shp.Name = CStr(classificationAddress.Offset(0, -1).Value) & "统计表" Then
-                    shp.Delete
-                    Exit For
-                End If
-            Next shp
+            
             With tablePic
                 .Left = 0
                 .Top = topOffset
@@ -338,10 +421,25 @@ Sub 寻找并格式化概述文本()
         Dim rubbish As Integer
         rubbish = CopyAndPasteAsValue(targetCell)
         rubbish = FormatText_GS(targetCell)
-        Set targetCell = targetCell.Offset(1, 0)
+        On Error GoTo targetCellNA
+            Set targetCell = targetCell.Offset(1, 0)
     Next forCount
+targetCellNA:
+    'Set targetCell.Value = OverviewKeywords_str & "                                                "
+    Debug.Print ("寻找并格式化概述文本()的targetCell出现Nothing，已跳过")
 End Sub
 Sub 一键粘贴图片()
+    Dim ws As Worksheet, currentWs As Worksheet
+    Dim pic As Shape
+    Set currentWs = ActiveSheet
+    Set ws = ThisWorkbook.Worksheets(SummarySheetName_str)
+    For Each pic In ws.Shapes
+        pic.Delete
+    Next pic
+    ws.Activate
+    ws.Parent.Windows(1).Zoom = 100
+    currentWs.Activate
+    
     Debug.Print ("AutoPastePicture1:" & CStr(AutoPastePicture1))
     Debug.Print ("AutoPastePicture2:" & CStr(AutoPastePicture2))
     Debug.Print ("AutoPastepicture3:" & CStr(AutoPastePicture3))
@@ -399,7 +497,7 @@ Sub 一键兼容性保存()
         Next j
     End If
     newWb.SaveAs Range(WORKBOOK_NAME_LOCATION_str).Value & ".xlsx"
-    'newWb.Close
+    newWb.Close
 
     Set newWb = Nothing
     Set wb = Nothing
