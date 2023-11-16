@@ -1,7 +1,10 @@
 Option Explicit
 Public Const ConfigTitleRangeLocation_str As String = "配!$1:$1"
+Public Const ConfigTitleKeywordLocation_str As String = "配!$A:$A"
+Public Const ConfigTitleKeyword_str As String = "明细!中代表【土地用途考核项】的字段名称是"
 Public Const WORKBOOK_NAME_LOCATION_str As String = "汇总!$B$2"
 Public Const ChartBuilderSheetName_str As String = "中P"
+Public Const CitySummaryTableLocation_str As String = "中S!$M$5"
 Public Const SummarySheetName_str As String = "汇总"
 Public Const DetailSheetName_str As String = "明细"
 Public Const KeyFiledsTitleLocation_str As String = "土地用途考核项"
@@ -16,6 +19,27 @@ Public Const OverviewKeywords_str As String = "概述："
 Public Const SummarySheetKeyFieldTitleLocation_str As String = "汇总!$C$1"
 'Public Const SummaryClassOffsetRows_long As Long = 26
 
+Function GetConfigKeywordString(keywordLocation As String) As String
+    Dim configKeywordRange As Range
+    Dim row_index As Long
+    Set configKeywordRange = Range(ConfigTitleKeywordLocation_str)
+    row_index = 1
+    Dim cell_i As Range
+    For Each cell_i In configKeywordRange
+        If CStr(cell_i.Value) = keywordLocation Then
+            GetConfigKeywordString = CStr(configKeywordRange.Cells(row_index, 1).Offset(0, 1).Value)
+            Exit Function
+        Else
+            row_index = row_index + 1
+        End If
+        If row_index > 65536 Then
+            On Error GoTo ErrorNA
+        End If
+    Next cell_i
+ErrorNA:
+    MsgBox keywordLocation & Chr(10) & " -> Function@GetConfigKeywordString", , "结果不存在"
+
+End Function
 
 
 Function GetConfigTitleRange(titleName As String) As Range
@@ -40,22 +64,28 @@ ErrorNA:
 End Function
 
 Function RangeDown2Blank(firstCell As Range) As Range
-    If CStr(firstCell.Value) = "" Then
-        On Error GoTo ErrorBlank
-    End If
     Dim cellsCount As Long
     cellsCount = 0
+    
     Dim targetCell As Range
     Set targetCell = firstCell
-    While CStr(targetCell.Value) <> ""
+    
+    Dim dataValues As Variant
+    dataValues = firstCell.Resize(1048576 - firstCell.Row + 1).Value ' 将数据读取到数组中
+    
+    While CStr(dataValues(cellsCount + 1, 1)) <> ""
         cellsCount = cellsCount + 1
-        Set targetCell = targetCell.Offset(1, 0)
     Wend
+    
     cellsCount = cellsCount - 1
+    
     Set RangeDown2Blank = Range(firstCell.Worksheet.Name & "!" & firstCell.Address & ":" & firstCell.Offset(cellsCount, 0).Address)
-    Exit Function
-ErrorBlank:
-    MsgBox firstCell.Value & Chr(10) & " -> Function@RangeDown2Blank", , "起始空单元格"
+End Function
+
+Function RangeRight2Blank(rangeA As Range) As Range
+    Dim lastCell As Range
+    Set lastCell = rangeA.End(xlToRight)
+    Set RangeRight2Blank = Range(rangeA.Address & ":" & lastCell.Address)
 End Function
 
 Function RangeExpand2Up(sourceRange As Range, targetRows As Long) As Range
@@ -141,7 +171,74 @@ ErrorText:
     errorFlag = True
 End Function
 
+Function SplitSeries(seriesText As String) As Variant
+    Dim startIndex As Long
+    Dim endIndex As Long
+    Dim rangeStringList(1 To 3) As String
+    Dim withoutBracketText As String
+    withoutBracketText = Mid(seriesText, 9, Len(seriesText) - 9)
+
+    startIndex = InStr(withoutBracketText, ",")
+    endIndex = InStr(startIndex + 1, withoutBracketText, ",")
+    rangeStringList(1) = Mid(withoutBracketText, 1, startIndex - 1)
+    rangeStringList(2) = Mid(withoutBracketText, startIndex + 1, endIndex - startIndex - 1)
+    startIndex = InStr(endIndex + 1, withoutBracketText, ",")
+    rangeStringList(3) = Mid(withoutBracketText, endIndex + 1, startIndex - endIndex - 1)
+    
+    SplitSeries = rangeStringList
+
+End Function
+
+Function ResetDataSourceAuto(chartName As String) As Integer
+    Dim ws As Worksheet
+    Dim chtObj As ChartObject
+    Dim dataSource As Range, dataSeries As String
+    Dim xDataSource As Range
+    Set ws = ThisWorkbook.Sheets(ChartBuilderSheetName_str)
+    For Each chtObj In ws.ChartObjects
+        If chtObj.Name = chartName Then
+            dataSeries = chtObj.Chart.SeriesCollection(1).Formula
+            ' dataSeries = "=SERIES(中T!$B$5:$C$5,中T!$B$6:$B$43,中T!$C$6:$C$43,1)"
+            Debug.Print dataSeries
+            Set dataSource = Range(SplitSeries(dataSeries)(3))(1, 1)
+            Set dataSource = RangeDown2Blank(dataSource)
+            Set xDataSource = Range(SplitSeries(dataSeries)(2))(1, 1)
+            Set xDataSource = RangeDown2Blank(xDataSource)
+            chtObj.Chart.SetSourceData dataSource
+            chtObj.Chart.FullSeriesCollection(1).Name = "=" & SplitSeries(dataSeries)(1)
+            chtObj.Chart.FullSeriesCollection(1).XValues = "=" & xDataSource.Worksheet.Name & "!" & xDataSource.Address
+            ResetDataSourceAuto = 0
+            Exit Function ' 找到匹配的图表后退出循环
+        End If
+    Next chtObj
+    MsgBox "未找到名称为'" & chartName & "'的图表"
+End Function
+
+Function 城市分布生成图专用函数(chartName As String) As Integer
+    Dim ws As Worksheet
+    Dim chtObj As ChartObject
+    Dim dataSource As Range, dataSeries As String
+    Dim xDataSource As Range, newDataSource As Range
+    Set ws = ThisWorkbook.Sheets(ChartBuilderSheetName_str)
+    For Each chtObj In ws.ChartObjects
+        If chtObj.Name = chartName Then
+            dataSeries = chtObj.Chart.SeriesCollection(1).Formula
+            ' dataSeries = "=SERIES(中T!$B$5:$C$5,中T!$B$6:$B$43,中T!$C$6:$C$43,1)"
+            Set dataSource = Range(SplitSeries(dataSeries)(3))(1, 1)
+            Set dataSource = RangeDown2Blank(dataSource)
+            Set xDataSource = Range(SplitSeries(dataSeries)(2))(1, 1)
+            Set xDataSource = RangeDown2Blank(xDataSource)
+            Set newDataSource = RangeRight2Blank(RangeDown2Blank(Range(CitySummaryTableLocation_str)))
+            chtObj.Chart.SetSourceData Source:=Sheets(Range(CitySummaryTableLocation_str).Worksheet.Name).Range(newDataSource.Address)
+            城市分布生成图专用函数 = 0
+            Exit Function ' 找到匹配的图表后退出循环
+        End If
+    Next chtObj
+    MsgBox "未找到名称为'" & chartName & "'的图表"
+End Function
+
 Function AutoPastePicture1() As Integer
+    '将表格粘贴为图片
     Dim tablePicSourceLocationRange As Range, tablePicPasteLocationRange As Range, tableSourceColumnCountRange As Range
     Set tablePicSourceLocationRange = RangeDown2Blank(GetConfigTitleRange(SummaryTableSourceLocation_str).Offset(1, 0))
     Set tablePicPasteLocationRange = RangeDown2Blank(GetConfigTitleRange(SummaryTable2Location_str).Offset(1, 0))
@@ -193,7 +290,7 @@ Function AutoPastePicture2() As Integer
     Dim chartPic As Picture
     For i = 1 To 32
         If CStr(SummaryPicNameList(i)) <> "" Then
-            Application.Wait Now + TimeValue("00:00:01")
+            Application.Wait Now + TimeValue("00:00:02")
             chartSheet.ChartObjects(CStr(SummaryPicNameList(i))).Copy
             Set chartPic = ThisWorkbook.Sheets(SummarySheetName_str).Pictures.Paste
             With chartPic
@@ -267,70 +364,85 @@ Function AutoPastePicture3() As Integer
 chartNA:
     errorNAFlag = True
 End Function
-Function DeleteRowIfs(byColumnName As String, bySheetName As String, searchText As String) As Integer
-    Dim fieldTitleRange As Range
-    Dim col_index As Long
-    Set fieldTitleRange = Range(bySheetName & "!$1:$1")
-    col_index = 1
-    Dim cell_i As Range, byColumn As Range
-    For Each cell_i In fieldTitleRange
-        If CStr(cell_i.Value) = titleName Then
-            Set byColumn = RangeDown2Blank(configTitleRange.Cells(1, col_index).Offset(1, 0))
-        Else
-            col_index = col_index + 1
-        End If
-        If col_index > 16384 Then
-            On Error GoTo ErrorNA
-        End If
-    Next cell_i
-    For Each cell_i In byColumn
-        If cell_i.Value <> searchText Then
-            Sheets(bySheetName).Rows(i).Delete
-        End If
-    Next cell_i
-    DeleteRowIfs = 0
-ErrorNA:
-    MsgBox titleName & Chr(10) & " -> Function@DeleteRowIfs", , "结果不存在"
-    Exit Function
-End Function
+
 
 Sub 一键拆分明细()
+    Dim t
+    t = Timer
+    Application.ScreenUpdating = False
+    Application.Calculation = xlCalculationManual
+    Application.EnableEvents = False
     Dim wb As Workbook
+    Dim ws0 As Worksheet
     Dim ws As Worksheet
     Dim saveSheetNameRange As Range
     Dim saveSheetName(1 To 32) As String
-    Set saveSheetNameRange = RangeDown2Blank(GetConfigTitleRange(KeyFiledsTitleLocationShort_str))
-    
+    Set saveSheetNameRange = RangeDown2Blank(GetConfigTitleRange(KeyFiledsTitleLocationShort_str).Offset(1, 0))
+    Dim keywordField As String
+    keywordField = GetConfigKeywordString(ConfigTitleKeyword_str)
     Dim classFullNameRange As Range
-    Set classFullName = RangeDown2Blank(GetConfigTitleRange(KeyFiledsTitleLocation_str).Offset(1, 0))
+    Set classFullNameRange = RangeDown2Blank(GetConfigTitleRange(KeyFiledsTitleLocation_str).Offset(1, 0))
+    Dim classFullName(1 To 32) As String
     Dim i As Long, b As Boolean, rubbish As Integer
     b = False
     For i = 1 To 32
         If CStr(saveSheetNameRange(i, 1).Value) <> "" Then
             saveSheetName(i) = CStr(saveSheetNameRange(i, 1).Value)
+            classFullName(i) = CStr(classFullNameRange(i, 1).Value)
         End If
     Next i
     Set wb = ThisWorkbook
+    Set ws0 = wb.Sheets(DetailSheetName_str)
     For i = 1 To 32
         If CStr(saveSheetNameRange(i, 1).Value) <> "" Then
+            Set ws = Nothing
             For Each ws In wb.Sheets
                 If ws.Name = CStr(saveSheetNameRange(i, 1).Value) Then
                     b = True
                 End If
             Next ws
             If b = True Then
-                b = True
-            Else
-                wb.Sheets(DetailSheetName_str).Copy After:=newWb.Sheets(newWb.Sheets.Count - 7)
-                
-                rubbish = DeleteRowIfs("土地用途整理", DetailSheetName_str, classFullNameRange(i, 1).Value)
+                Application.DisplayAlerts = False
+                wb.Sheets(CStr(saveSheetNameRange(i, 1).Value)).Delete
+                Application.DisplayAlerts = True
             End If
+            ' wb.Sheets(DetailSheetName_str).Copy After:=wb.Sheets(wb.Sheets.Count - 7)
+            Set ws = wb.Sheets.Add(After:=wb.Sheets(wb.Sheets.Count - 7))
+            ws.Name = saveSheetName(i)
+            Dim lastRow As Long
+            Dim columnIndex As Long
+            columnIndex = Application.Match(keywordField, ws0.Rows(1), 0) '第18列
+            Dim i1 As Long
+            Dim j As Long
+            lastRow = ws0.Cells(ws0.Rows.Count, columnIndex).End(xlUp).Row
+            ws0.Rows(1).Copy ws.Rows(1) ' 复制标题行
+            For i1 = 2 To lastRow
+                If ws0.Cells(i1, columnIndex).Value = classFullName(i) Then
+                    j = ws.Cells(ws.Rows.Count, columnIndex).End(xlUp).Row + 1
+                    ws0.Rows(i1).Copy ws.Rows(j)
+                End If
+            Next i1
+            
         End If
+        b = False
     Next i
+    Application.ScreenUpdating = True
+    Application.EnableEvents = True
+    ThisWorkbook.Worksheets(ChartBuilderSheetName_str).Range("A1").Select
+    MsgBox Timer - t
 End Sub
 
 Sub 制作图表()
+    Calculate
+    Application.ScreenUpdating = False
+    Application.Calculation = xlCalculationManual
+    Application.EnableEvents = False
+    Dim rubbish0 As Integer
     ThisWorkbook.Worksheets(ChartBuilderSheetName_str).Range("A1").Select
+    rubbish0 = ResetDataSourceAuto("总图")
+    rubbish0 = ResetDataSourceAuto("考核土地饼状图")
+    rubbish0 = ResetDataSourceAuto("考核土地柱状图")
+    rubbish0 = 城市分布生成图专用函数("城市分布柱状图")
     Dim chartSheet As Worksheet
     Set chartSheet = ThisWorkbook.Sheets(ChartBuilderSheetName_str)
     Dim classTitle As Range, classRangeStart As Range, classRange As Range
@@ -375,7 +487,7 @@ Sub 制作图表()
             End If
         Next shp
         classificationChart.Name = CStr(classificationAddress.Offset(0, -1).Value) & "柱状图"
-        classificationChart.Chart.SetSourceData source:=sourceRange
+        classificationChart.Chart.SetSourceData Source:=sourceRange
         classificationChart.Chart.SetElement (msoElementDataLabelOutSideEnd)
         classificationChart.Chart.ChartType = xlColumnClustered
         classificationChart.Chart.FullSeriesCollection(1).ChartType = xlColumnClustered
@@ -385,7 +497,7 @@ Sub 制作图表()
         classificationChart.Chart.FullSeriesCollection(2).AxisGroup = 2
         classificationChart.Chart.SetElement (msoElementChartTitleAboveChart)
         classificationChart.Chart.SetElement (msoElementLegendBottom)
-        If sourceRange.Rows.Count > 90 Then
+        If sourceRange.Rows.Count > 75 Then
             classificationChart.Chart.FullSeriesCollection(2).DataLabels.Delete
         End If
         classificationChart.Chart.ChartTitle.text = (CStr(classificationAddress.Offset(0, -1).Value) & "分布")
@@ -410,6 +522,8 @@ Sub 制作图表()
         End If
         forEachCount = forEachCount + 1
     Next classificationAddress
+    Application.ScreenUpdating = True
+    Application.EnableEvents = True
 End Sub
 
 Sub 寻找并格式化概述文本()
@@ -429,6 +543,9 @@ targetCellNA:
     Debug.Print ("寻找并格式化概述文本()的targetCell出现Nothing，已跳过")
 End Sub
 Sub 一键粘贴图片()
+    Application.ScreenUpdating = False
+    Application.Calculation = xlCalculationManual
+    Application.EnableEvents = False
     Dim ws As Worksheet, currentWs As Worksheet
     Dim pic As Shape
     Set currentWs = ActiveSheet
@@ -443,9 +560,17 @@ Sub 一键粘贴图片()
     Debug.Print ("AutoPastePicture1:" & CStr(AutoPastePicture1))
     Debug.Print ("AutoPastePicture2:" & CStr(AutoPastePicture2))
     Debug.Print ("AutoPastepicture3:" & CStr(AutoPastePicture3))
+    
+    Application.ScreenUpdating = True
+    Application.EnableEvents = True
 End Sub
 
 Sub 一键兼容性保存()
+    Application.ScreenUpdating = False
+    Application.Calculation = xlCalculationManual
+    Application.EnableEvents = False
+    Dim path As String
+    path = ThisWorkbook.path
     Dim wb As Workbook
     Dim newWb As Workbook
     Dim ws As Worksheet
@@ -496,9 +621,11 @@ Sub 一键兼容性保存()
             ActiveWorkbook.BreakLink Name:=links(j), Type:=xlLinkTypeExcelLinks
         Next j
     End If
-    newWb.SaveAs Range(WORKBOOK_NAME_LOCATION_str).Value & ".xlsx"
+    newWb.SaveAs path & "\" & Range(WORKBOOK_NAME_LOCATION_str).Value & ".xlsx"
     newWb.Close
 
     Set newWb = Nothing
     Set wb = Nothing
+    Application.ScreenUpdating = True
+    Application.EnableEvents = True
 End Sub
