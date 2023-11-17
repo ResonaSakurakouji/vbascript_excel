@@ -1,6 +1,7 @@
 Option Explicit
 Public Const ConfigTitleRangeLocation_str As String = "配!$1:$1"
 Public Const ConfigTitleKeywordLocation_str As String = "配!$A:$A"
+Public Const RAMSheetName As String = "寄"
 Public Const ConfigTitleKeyword_str As String = "明细!中代表【土地用途考核项】的字段名称是"
 Public Const WORKBOOK_NAME_LOCATION_str As String = "汇总!$B$2"
 Public Const ChartBuilderSheetName_str As String = "中P"
@@ -17,6 +18,39 @@ Public Const SummaryChartNameLocation_str As String = "汇总统计图名称"
 Public Const SummaryChart2Location_str As String = "汇总统计图粘贴至"
 Public Const OverviewKeywords_str As String = "概述："
 Public Const SummarySheetKeyFieldTitleLocation_str As String = "汇总!$C$1"
+
+Function Unique2RAMSheet() As Integer
+    Dim fromRange As Range, toRange As Range, detailTitle As Range, RAMTitle As Range, columnName As String
+    Set RAMTitle = Sheets(RAMSheetName).Range("$6:$6")
+    Sheets(RAMSheetName).Range("$7:$1048576").ClearContents
+    Dim cell_i As Range
+    For Each cell_i In RAMTitle
+        If cell_i.Value <> "" Then
+            columnName = cell_i.Value
+            Set detailTitle = Sheets(DetailSheetName_str).Range("$1:$1")
+            Set fromRange = detailTitle.Find(columnName)
+            Set fromRange = fromRange.Resize(1024000, 1)
+            Dim ws As Worksheet
+            Set ws = detailTitle.Parent
+            ws.Activate
+            fromRange.Copy
+            Set toRange = RAMTitle.Find(columnName, LookIn:=xlFormulas)
+            toRange.PasteSpecial Paste:=xlPasteValues, Operation:=xlNone, SkipBlanks:=False, Transpose:=False
+            Application.CutCopyMode = False
+            Set toRange = toRange.Resize(1024100, 1)
+            toRange.RemoveDuplicates Columns:=1, Header:=xlYes
+        Else
+            Unique2RAMSheet = 0
+            Exit Function
+        End If
+    Next cell_i
+End Function
+
+Function WithoutStarString() As Integer
+    Sheets(DetailSheetName_str).Cells.Replace What:="~*", Replacement:="×", LookAt:=xlPart, SearchOrder _
+        :=xlByRows, MatchCase:=False, SearchFormat:=False, ReplaceFormat:=False
+    WithoutStarString = 0
+End Function
 
 Function GetConfigKeywordString(keywordLocation As String) As String
     Dim configKeywordRange As Range
@@ -100,6 +134,9 @@ Function CopyAndPasteAsValue(targetCell As Range) As Integer
     End If
     Set sourceCell = targetCell.Offset(-1, 1)
     Set destinationCell = targetCell
+    Dim ws As Worksheet
+    Set ws = sourceCell.Parent
+    ws.Activate
     sourceCell.Copy
     destinationCell.PasteSpecial Paste:=xlPasteValues
     Application.CutCopyMode = False
@@ -194,6 +231,7 @@ Function ResetDataSourceAuto(chartName As String) As Integer
     Dim dataSource As Range, dataSeries As String
     Dim xDataSource As Range
     Set ws = ThisWorkbook.Sheets(ChartBuilderSheetName_str)
+    ws.Activate
     For Each chtObj In ws.ChartObjects
         If chtObj.Name = chartName Then
             dataSeries = chtObj.Chart.SeriesCollection(1).Formula
@@ -220,6 +258,7 @@ Function 城市分布生成图专用函数(chartName As String) As Integer
     Dim dataSource As Range, dataSeries As String
     Dim xDataSource As Range, newDataSource As Range
     Set ws = ThisWorkbook.Sheets(ChartBuilderSheetName_str)
+    ws.Activate
     For Each chtObj In ws.ChartObjects
         If chtObj.Name = chartName Then
             dataSeries = chtObj.Chart.SeriesCollection(1).Formula
@@ -263,12 +302,16 @@ Function AutoPastePicture1() As Integer
             Dim tablePic As Picture, debug1 As String
             Set tablePicSourceRange = RangeDown2Blank(Range(CStr(tablePicSourceLocationList(i))))
             Set tablePicSourceRange = tablePicSourceRange.Resize(tablePicSourceRange.Rows.Count, tablePicColumnCountList(i))
+            Dim tws As Worksheet
+            Set tws = tablePicSourceRange.Parent
+            tws.Activate
             tablePicSourceRange.Copy
             Set tablePic = ThisWorkbook.Sheets(SummarySheetName_str).Pictures.Paste
             With tablePic
                 .Left = ThisWorkbook.Sheets(SummarySheetName_str).Range(tablePicPasteLocationList(i)).Left
                 .Top = ThisWorkbook.Sheets(SummarySheetName_str).Range(tablePicPasteLocationList(i)).Top
             End With
+            
             Debug.Print "》》" & CStr(tablePicPasteLocationList(i)) & "》》表格图粘贴完成>==>耗时" & CStr(Timer - t)
         End If
     Next i
@@ -382,6 +425,9 @@ Sub 一键拆分明细()
     Application.ScreenUpdating = False
     Application.Calculation = xlCalculationManual
     Application.EnableEvents = False
+    Dim rubbish0 As Integer
+    rubbish0 = Unique2RAMSheet()
+    rubbish0 = WithoutStarString()
     Dim wb As Workbook
     Dim ws0 As Worksheet
     Dim ws As Worksheet
@@ -512,7 +558,7 @@ Sub 制作图表()
         classificationChart.Chart.FullSeriesCollection(2).AxisGroup = 2
         classificationChart.Chart.SetElement (msoElementChartTitleAboveChart)
         classificationChart.Chart.SetElement (msoElementLegendBottom)
-        If sourceRange.Rows.Count > 75 Then
+        If sourceRange.Rows.Count > 48 Then
             classificationChart.Chart.FullSeriesCollection(2).DataLabels.Delete
         End If
         classificationChart.Chart.ChartTitle.text = (CStr(classificationAddress.Offset(0, -1).Value) & "分布")
@@ -520,6 +566,9 @@ Sub 制作图表()
             Dim tablePicSourceRange As Range
             Dim tablePic As Picture
             Set tablePicSourceRange = sourceRange
+            Dim ws2 As Worksheet
+            Set ws2 = sourceRange.Parent
+            ws2.Activate
             tablePicSourceRange.Copy
             Set tablePic = ThisWorkbook.Sheets(ChartBuilderSheetName_str).Pictures.Paste
             
@@ -661,4 +710,5 @@ Sub 一键操作全家桶()
     Call 一键粘贴图片
     Call 一键兼容性保存
     Debug.Print Chr(10) & "所有任务全部完成>==>耗时" & CStr(Timer - t)
+    Debug.Print "SUCCESSFUL_COMPLETION"
 End Sub
