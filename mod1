@@ -17,7 +17,6 @@ Public Const SummaryChartNameLocation_str As String = "汇总统计图名称"
 Public Const SummaryChart2Location_str As String = "汇总统计图粘贴至"
 Public Const OverviewKeywords_str As String = "概述："
 Public Const SummarySheetKeyFieldTitleLocation_str As String = "汇总!$C$1"
-'Public Const SummaryClassOffsetRows_long As Long = 26
 
 Function GetConfigKeywordString(keywordLocation As String) As String
     Dim configKeywordRange As Range
@@ -40,7 +39,6 @@ ErrorNA:
     MsgBox keywordLocation & Chr(10) & " -> Function@GetConfigKeywordString", , "结果不存在"
 
 End Function
-
 
 Function GetConfigTitleRange(titleName As String) As Range
     Dim configTitleRange As Range
@@ -71,8 +69,7 @@ Function RangeDown2Blank(firstCell As Range) As Range
     Set targetCell = firstCell
     
     Dim dataValues As Variant
-    dataValues = firstCell.Resize(1048576 - firstCell.Row + 1).Value ' 将数据读取到数组中
-    
+    dataValues = firstCell.Resize(1048576 - firstCell.Row + 1).Value
     While CStr(dataValues(cellsCount + 1, 1)) <> ""
         cellsCount = cellsCount + 1
     Wend
@@ -190,6 +187,8 @@ Function SplitSeries(seriesText As String) As Variant
 End Function
 
 Function ResetDataSourceAuto(chartName As String) As Integer
+    Dim t
+    t = Timer
     Dim ws As Worksheet
     Dim chtObj As ChartObject
     Dim dataSource As Range, dataSeries As String
@@ -198,8 +197,6 @@ Function ResetDataSourceAuto(chartName As String) As Integer
     For Each chtObj In ws.ChartObjects
         If chtObj.Name = chartName Then
             dataSeries = chtObj.Chart.SeriesCollection(1).Formula
-            ' dataSeries = "=SERIES(中T!$B$5:$C$5,中T!$B$6:$B$43,中T!$C$6:$C$43,1)"
-            Debug.Print dataSeries
             Set dataSource = Range(SplitSeries(dataSeries)(3))(1, 1)
             Set dataSource = RangeDown2Blank(dataSource)
             Set xDataSource = Range(SplitSeries(dataSeries)(2))(1, 1)
@@ -208,13 +205,16 @@ Function ResetDataSourceAuto(chartName As String) As Integer
             chtObj.Chart.FullSeriesCollection(1).Name = "=" & SplitSeries(dataSeries)(1)
             chtObj.Chart.FullSeriesCollection(1).XValues = "=" & xDataSource.Worksheet.Name & "!" & xDataSource.Address
             ResetDataSourceAuto = 0
-            Exit Function ' 找到匹配的图表后退出循环
+            Debug.Print "》》" & chartName & "》》数据源更新完成>==>耗时" & CStr(Timer - t)
+            Exit Function
         End If
     Next chtObj
     MsgBox "未找到名称为'" & chartName & "'的图表"
 End Function
 
 Function 城市分布生成图专用函数(chartName As String) As Integer
+    Dim t
+    t = Timer
     Dim ws As Worksheet
     Dim chtObj As ChartObject
     Dim dataSource As Range, dataSeries As String
@@ -223,7 +223,6 @@ Function 城市分布生成图专用函数(chartName As String) As Integer
     For Each chtObj In ws.ChartObjects
         If chtObj.Name = chartName Then
             dataSeries = chtObj.Chart.SeriesCollection(1).Formula
-            ' dataSeries = "=SERIES(中T!$B$5:$C$5,中T!$B$6:$B$43,中T!$C$6:$C$43,1)"
             Set dataSource = Range(SplitSeries(dataSeries)(3))(1, 1)
             Set dataSource = RangeDown2Blank(dataSource)
             Set xDataSource = Range(SplitSeries(dataSeries)(2))(1, 1)
@@ -231,7 +230,8 @@ Function 城市分布生成图专用函数(chartName As String) As Integer
             Set newDataSource = RangeRight2Blank(RangeDown2Blank(Range(CitySummaryTableLocation_str)))
             chtObj.Chart.SetSourceData Source:=Sheets(Range(CitySummaryTableLocation_str).Worksheet.Name).Range(newDataSource.Address)
             城市分布生成图专用函数 = 0
-            Exit Function ' 找到匹配的图表后退出循环
+            Debug.Print "》》" & chartName & "》》数据源更新完成>==>耗时" & CStr(Timer - t)
+            Exit Function
         End If
     Next chtObj
     MsgBox "未找到名称为'" & chartName & "'的图表"
@@ -239,6 +239,7 @@ End Function
 
 Function AutoPastePicture1() As Integer
     '将表格粘贴为图片
+    Dim t
     Dim tablePicSourceLocationRange As Range, tablePicPasteLocationRange As Range, tableSourceColumnCountRange As Range
     Set tablePicSourceLocationRange = RangeDown2Blank(GetConfigTitleRange(SummaryTableSourceLocation_str).Offset(1, 0))
     Set tablePicPasteLocationRange = RangeDown2Blank(GetConfigTitleRange(SummaryTable2Location_str).Offset(1, 0))
@@ -257,23 +258,25 @@ Function AutoPastePicture1() As Integer
     
     For i = 1 To 32
         If CStr(tablePicSourceLocationList(i)) <> "" Then
+            t = Timer
             Dim tablePicSourceRange As Range
             Dim tablePic As Picture, debug1 As String
             Set tablePicSourceRange = RangeDown2Blank(Range(CStr(tablePicSourceLocationList(i))))
             Set tablePicSourceRange = tablePicSourceRange.Resize(tablePicSourceRange.Rows.Count, tablePicColumnCountList(i))
-            
             tablePicSourceRange.Copy
             Set tablePic = ThisWorkbook.Sheets(SummarySheetName_str).Pictures.Paste
             With tablePic
                 .Left = ThisWorkbook.Sheets(SummarySheetName_str).Range(tablePicPasteLocationList(i)).Left
                 .Top = ThisWorkbook.Sheets(SummarySheetName_str).Range(tablePicPasteLocationList(i)).Top
             End With
+            Debug.Print "》》" & CStr(tablePicPasteLocationList(i)) & "》》表格图粘贴完成>==>耗时" & CStr(Timer - t)
         End If
     Next i
     AutoPastePicture1 = 0
 End Function
 
 Function AutoPastePicture2() As Integer
+    Dim t
     Dim chartPicNameLocationRange As Range, chartPicPasteLocationRange As Range, chartSheet As Worksheet
     Set chartPicNameLocationRange = RangeDown2Blank(GetConfigTitleRange(SummaryChartNameLocation_str).Offset(1, 0))
     Set chartPicPasteLocationRange = RangeDown2Blank(GetConfigTitleRange(SummaryChart2Location_str).Offset(1, 0))
@@ -290,6 +293,7 @@ Function AutoPastePicture2() As Integer
     Dim chartPic As Picture
     For i = 1 To 32
         If CStr(SummaryPicNameList(i)) <> "" Then
+            t = Timer
             Application.Wait Now + TimeValue("00:00:02")
             chartSheet.ChartObjects(CStr(SummaryPicNameList(i))).Copy
             Set chartPic = ThisWorkbook.Sheets(SummarySheetName_str).Pictures.Paste
@@ -297,6 +301,7 @@ Function AutoPastePicture2() As Integer
                 .Left = ThisWorkbook.Sheets(SummarySheetName_str).Range(SummaryPicLocationList(i)).Left
                 .Top = ThisWorkbook.Sheets(SummarySheetName_str).Range(SummaryPicLocationList(i)).Top
             End With
+            Debug.Print "》》" & SummaryPicNameList(i) & "》》统计图粘贴完成>==>耗时" & CStr(Timer - t)
         End If
     Next i
     AutoPastePicture2 = 0
@@ -304,6 +309,7 @@ Function AutoPastePicture2() As Integer
 End Function
 
 Function AutoPastePicture3() As Integer
+    Dim t
     Dim classTitle As Range, classRangeStart As Range, classRange As Range, chartSheet As Worksheet
     Set classTitle = GetConfigTitleRange(KeyFiledsTitleLocation_str)
     Set classRange = RangeDown2Blank(classTitle.Offset(1, 0))
@@ -319,12 +325,13 @@ Function AutoPastePicture3() As Integer
     Dim chartPic As Picture
     For i = 1 To 32
         If CStr(classNameList(i)) <> "" Then
+            t = Timer
             noTableFlag = True
             Set currentCell = FindDownByRowWithStartText(currentCell, CStr(classNameList(i))).Offset(1, 0)
             Dim pic As Picture
             For Each pic In chartSheet.Pictures
                 If pic.Name = CStr(classNameList(i) & "统计表") Then
-                    Application.Wait Now + TimeValue("00:00:01")
+                    Application.Wait Now + TimeValue("00:00:02")
                     pic.Copy
                     noTableFlag = False
                     Exit For
@@ -336,8 +343,10 @@ Function AutoPastePicture3() As Integer
                     .Left = ThisWorkbook.Sheets(SummarySheetName_str).Range(currentCell.Address).Left
                     .Top = ThisWorkbook.Sheets(SummarySheetName_str).Range(currentCell.Address).Top
                 End With
+                Debug.Print "》》" & CStr(classNameList(i)) & "》》表格图粘贴完成>==>耗时" & CStr(Timer - t)
             End If
-            Application.Wait Now + TimeValue("00:00:01")
+            t = Timer
+            Application.Wait Now + TimeValue("00:00:02")
             Dim errorNAFlag As Boolean
             errorNAFlag = False
             On Error GoTo chartNA
@@ -355,6 +364,7 @@ Function AutoPastePicture3() As Integer
                         .Top = ThisWorkbook.Sheets(SummarySheetName_str).Range(currentCell.Address).Top
                     End With
                 End If
+                Debug.Print "》》" & CStr(classNameList(i)) & "》》统计图粘贴完成>==>耗时" & CStr(Timer - t)
             End If
             errorNAFlag = False
         End If
@@ -395,6 +405,8 @@ Sub 一键拆分明细()
     Set ws0 = wb.Sheets(DetailSheetName_str)
     For i = 1 To 32
         If CStr(saveSheetNameRange(i, 1).Value) <> "" Then
+            Dim t1
+            t1 = Timer
             Set ws = Nothing
             For Each ws In wb.Sheets
                 If ws.Name = CStr(saveSheetNameRange(i, 1).Value) Then
@@ -406,12 +418,11 @@ Sub 一键拆分明细()
                 wb.Sheets(CStr(saveSheetNameRange(i, 1).Value)).Delete
                 Application.DisplayAlerts = True
             End If
-            ' wb.Sheets(DetailSheetName_str).Copy After:=wb.Sheets(wb.Sheets.Count - 7)
             Set ws = wb.Sheets.Add(After:=wb.Sheets(wb.Sheets.Count - 7))
             ws.Name = saveSheetName(i)
             Dim lastRow As Long
             Dim columnIndex As Long
-            columnIndex = Application.Match(keywordField, ws0.Rows(1), 0) '第18列
+            columnIndex = Application.Match(keywordField, ws0.Rows(1), 0)
             Dim i1 As Long
             Dim j As Long
             lastRow = ws0.Cells(ws0.Rows.Count, columnIndex).End(xlUp).Row
@@ -422,18 +433,20 @@ Sub 一键拆分明细()
                     ws0.Rows(i1).Copy ws.Rows(j)
                 End If
             Next i1
-            
+            Debug.Print "》》" & saveSheetName(i) & "》》脱离拆分完成>==>耗时" & CStr(Timer - t1)
         End If
         b = False
     Next i
     Application.ScreenUpdating = True
     Application.EnableEvents = True
-    ThisWorkbook.Worksheets(ChartBuilderSheetName_str).Range("A1").Select
-    MsgBox Timer - t
+    ThisWorkbook.Worksheets(ChartBuilderSheetName_str).Select
+    Debug.Print "》" & DetailSheetName_str & "》细分拆分全部完成>==>耗时" & CStr(Timer - t)
 End Sub
 
 Sub 制作图表()
     Calculate
+    Dim t
+    t = Timer
     Application.ScreenUpdating = False
     Application.Calculation = xlCalculationManual
     Application.EnableEvents = False
@@ -458,6 +471,8 @@ Sub 制作图表()
     Dim forEachCount As Long
     forEachCount = 0
     For Each classificationAddress In classRange
+        Dim t1
+        t1 = Timer
         Dim sourceRange As Range
         Dim classificationAddressStr As String
         classificationAddressStr = CStr(classificationAddress.Value)
@@ -521,7 +536,9 @@ Sub 制作图表()
             End If
         End If
         forEachCount = forEachCount + 1
+        Debug.Print "》》" & CStr(classificationAddress.Offset(0, -1).Value) & "》》图表生成完成>==>耗时" & CStr(Timer - t1)
     Next classificationAddress
+    Debug.Print "》图表生成全部完成>==>耗时" & CStr(Timer - t)
     Application.ScreenUpdating = True
     Application.EnableEvents = True
 End Sub
@@ -539,13 +556,15 @@ Sub 寻找并格式化概述文本()
             Set targetCell = targetCell.Offset(1, 0)
     Next forCount
 targetCellNA:
-    'Set targetCell.Value = OverviewKeywords_str & "                                                "
-    Debug.Print ("寻找并格式化概述文本()的targetCell出现Nothing，已跳过")
+    Debug.Print ("！寻找并格式化概述文本()的targetCell出现Nothing，已跳过")
 End Sub
 Sub 一键粘贴图片()
     Application.ScreenUpdating = False
     Application.Calculation = xlCalculationManual
     Application.EnableEvents = False
+    Dim t
+    t = Timer
+    Dim rubbish As Integer
     Dim ws As Worksheet, currentWs As Worksheet
     Dim pic As Shape
     Set currentWs = ActiveSheet
@@ -556,11 +575,10 @@ Sub 一键粘贴图片()
     ws.Activate
     ws.Parent.Windows(1).Zoom = 100
     currentWs.Activate
-    
-    Debug.Print ("AutoPastePicture1:" & CStr(AutoPastePicture1))
-    Debug.Print ("AutoPastePicture2:" & CStr(AutoPastePicture2))
-    Debug.Print ("AutoPastepicture3:" & CStr(AutoPastePicture3))
-    
+    rubbish = AutoPastePicture1()
+    rubbish = AutoPastePicture2()
+    rubbish = AutoPastePicture3()
+    Debug.Print "》图表粘贴全部完成>==>耗时" & CStr(Timer - t)
     Application.ScreenUpdating = True
     Application.EnableEvents = True
 End Sub
@@ -569,6 +587,8 @@ Sub 一键兼容性保存()
     Application.ScreenUpdating = False
     Application.Calculation = xlCalculationManual
     Application.EnableEvents = False
+    Dim t
+    t = Timer
     Dim path As String
     path = ThisWorkbook.path
     Dim wb As Workbook
@@ -594,7 +614,6 @@ Sub 一键兼容性保存()
     Sheets("Sheet1").Select
     Application.DisplayAlerts = False
     ActiveWindow.SelectedSheets.Delete
-    Application.DisplayAlerts = True
     For Each ws In wb.Sheets
         If ws.Name = DetailSheetName_str Then
             ws.Copy After:=newWb.Sheets(newWb.Sheets.Count)
@@ -626,6 +645,20 @@ Sub 一键兼容性保存()
 
     Set newWb = Nothing
     Set wb = Nothing
+    Debug.Print "》" & path & "\" & Range(WORKBOOK_NAME_LOCATION_str).Value & ".xlsx》兼容性输出完成>==>耗时" & CStr(Timer - t)
+    Application.DisplayAlerts = True
     Application.ScreenUpdating = True
     Application.EnableEvents = True
+End Sub
+
+Sub 一键操作全家桶()
+    Dim t
+    t = Timer
+    Debug.Print "=+=+=+=+=+=+=+=+=+=+=  一键操作开始执行  =+=+=+=+=+=+=+=+=+=+="
+    Call 一键拆分明细
+    Call 制作图表
+    Call 寻找并格式化概述文本
+    Call 一键粘贴图片
+    Call 一键兼容性保存
+    Debug.Print Chr(10) & "所有任务全部完成>==>耗时" & CStr(Timer - t)
 End Sub
