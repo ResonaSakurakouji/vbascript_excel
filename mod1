@@ -701,6 +701,7 @@ Sub 制作图表()
             Set ws2 = sourceRange.Parent
             ws2.Activate
             tablePicSourceRange.Copy
+            Application.Wait Now + TimeValue("00:00:02")
             Set tablePic = ThisWorkbook.Sheets(ChartBuilderSheetName_str).Pictures.Paste
             
             With tablePic
@@ -857,7 +858,7 @@ Sub 递归一键兼容性保存(targetSavePath As String)
 End Sub
 
 Sub 递归一键操作全家桶()
-    Dim t
+    Dim t, t1
     t = Timer
     Dim rubbish As Integer
     Dim fso As Object, file As Object
@@ -870,6 +871,7 @@ Sub 递归一键操作全家桶()
     Set file = fso.OpenTextFile(filePath, 1) ' 1表示只读模式
     
     Do While Not file.AtEndOfStream
+        t1 = Timer
         textLine = file.ReadLine
         Debug.Print "》当前正在处理的文件是：" & textLine
         Set ws = ThisWorkbook.Sheets(DetailSheetName_str)
@@ -883,6 +885,8 @@ Sub 递归一键操作全家桶()
         targetSavePath = GetFolderPath(textLine)
         Call 递归一键兼容性保存(targetSavePath)
         Application.Wait Now + TimeValue("00:00:02")
+        
+        Debug.Print Chr(10) & "当前遍历对象任务完成>==>耗时" & CStr(Timer - t1)
     Loop
     
     file.Close
