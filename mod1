@@ -13,6 +13,7 @@ Option Explicit
 #End If
 Public Const ConfigTitleRangeLocation_str As String = "配!$1:$1"
 Public Const ConfigTitleKeywordLocation_str As String = "配!$A:$A"
+Public Const ConfigSheetName As String = "配"
 Public Const RAMSheetName As String = "寄"
 Public Const ConfigTitleKeyword_str As String = "明细!中代表【土地用途考核项】的字段名称是"
 Public Const WORKBOOK_NAME_LOCATION_str As String = "汇总!$B$2"
@@ -197,9 +198,9 @@ Function FormatText_GS(targetCell As Range) As Integer
         Exit Function
     End If
     
-    searchTexts(1) = "整体储备面积"
+    searchTexts(1) = "    整体"
     searchTexts(2) = "万平米，其中"
-    searchTexts(3) = "家土地使用人占到了整体土地"
+    searchTexts(3) = "家土地使用人占到了整体"
     searchTexts(4) = "其中拿地面积最大的是"
     searchTexts(5) = "，面积达到"
     
@@ -285,6 +286,11 @@ Function 城市分布生成图专用函数(chartName As String) As Integer
                 chtOBJ.Chart.SetElement (msoElementDataLabelNone)
             Else
                 chtOBJ.Chart.SetElement (msoElementDataLabelOutSideEnd)
+            End If
+            If ThisWorkbook.Sheets(ConfigSheetName).Range("$B$1") = "省级" Then
+                chtOBJ.Chart.ChartTitle.text = "各城市属性分布"
+            Else
+                chtOBJ.Chart.ChartTitle.text = "各区县属性分布"
             End If
             城市分布生成图专用函数 = 0
             Debug.Print "》》" & chartName & "》》数据源更新完成>==>耗时" & CStr(Timer - t)
@@ -637,6 +643,10 @@ Sub 制作图表()
         topOffset = forEachCount * 310 + 750
         If sourceRange.Rows.Count > 20 Then
             Set classificationChart = chartSheet.ChartObjects.Add(Left:=0, Top:=topOffset, Width:=1310, Height:=300)
+            '下面的属性是只读的，只能select了
+            classificationChart.Chart.PlotArea.Select
+            Selection.Width = 1258
+            Selection.Left = 65
         Else
             Set classificationChart = chartSheet.ChartObjects.Add(Left:=600, Top:=topOffset, Width:=710, Height:=300)
         End If
@@ -665,8 +675,15 @@ Sub 制作图表()
         classificationChart.Chart.FullSeriesCollection(2).AxisGroup = 2
         classificationChart.Chart.SetElement (msoElementChartTitleAboveChart)
         classificationChart.Chart.SetElement (msoElementLegendBottom)
-        If sourceRange.Rows.Count > 48 Then
+        With classificationChart.Chart
+            .FullSeriesCollection(2).ApplyDataLabels
+            .FullSeriesCollection(2).DataLabels.Position = xlLabelPositionAbove
+        End With
+        If sourceRange.Rows.Count > 55 Then
             classificationChart.Chart.FullSeriesCollection(2).DataLabels.Delete
+        End If
+        If sourceRange.Rows.Count > 100 Then
+            classificationChart.Chart.FullSeriesCollection(1).DataLabels.Delete
         End If
         classificationChart.Chart.ChartTitle.text = (CStr(classificationAddress.Offset(0, -1).Value) & "分布")
         If sourceRange.Rows.Count <= 20 Then
@@ -821,12 +838,12 @@ Sub 递归一键兼容性保存(targetSavePath As String)
             ActiveWorkbook.BreakLink Name:=links(j), Type:=xlLinkTypeExcelLinks
         Next j
     End If
-    newWb.SaveAs path & "\" & Range(WORKBOOK_NAME_LOCATION_str).Value & ".xlsx"
+    newWb.SaveAs path & "\00" & Range(WORKBOOK_NAME_LOCATION_str).Value & ".xlsx"
     newWb.Close
 
     Set newWb = Nothing
     Set wb = Nothing
-    Debug.Print "》" & path & "\" & Range(WORKBOOK_NAME_LOCATION_str).Value & ".xlsx》兼容性输出完成>==>耗时" & CStr(Timer - t)
+    Debug.Print "》" & path & "\00" & Range(WORKBOOK_NAME_LOCATION_str).Value & ".xlsx》兼容性输出完成>==>耗时" & CStr(Timer - t)
     Application.DisplayAlerts = True
     Application.ScreenUpdating = True
     Application.EnableEvents = True
