@@ -281,6 +281,11 @@ Function 城市分布生成图专用函数(chartName As String) As Integer
             Set newDataSource = RangeRight2Blank(RangeDown2Blank(Range(CitySummaryTableLocation_str)))
             chtOBJ.Chart.SetSourceData Source:=Sheets(Range(CitySummaryTableLocation_str).Worksheet.Name).Range(newDataSource.Address)
             chtOBJ.Chart.PlotBy = xlColumns
+            If newDataSource.Rows.Count > 12 Then
+                chtOBJ.Chart.SetElement (msoElementDataLabelNone)
+            Else
+                chtOBJ.Chart.SetElement (msoElementDataLabelOutSideEnd)
+            End If
             城市分布生成图专用函数 = 0
             Debug.Print "》》" & chartName & "》》数据源更新完成>==>耗时" & CStr(Timer - t)
             Exit Function
