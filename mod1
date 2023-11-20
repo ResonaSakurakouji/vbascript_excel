@@ -247,14 +247,14 @@ Function ResetDataSourceAuto(chartName As String) As Integer
     ws.Activate
     For Each chtOBJ In ws.ChartObjects
         If chtOBJ.Name = chartName Then
-            dataSeries = chtOBJ.Chart.SeriesCollection(1).Formula
+            dataSeries = chtOBJ.chart.SeriesCollection(1).Formula
             Set dataSource = Range(SplitSeries(dataSeries)(3))(1, 1)
             Set dataSource = RangeDown2Blank(dataSource)
             Set xDataSource = Range(SplitSeries(dataSeries)(2))(1, 1)
             Set xDataSource = RangeDown2Blank(xDataSource)
-            chtOBJ.Chart.SetSourceData dataSource
-            chtOBJ.Chart.FullSeriesCollection(1).Name = "=" & SplitSeries(dataSeries)(1)
-            chtOBJ.Chart.FullSeriesCollection(1).XValues = "=" & xDataSource.Worksheet.Name & "!" & xDataSource.Address
+            chtOBJ.chart.SetSourceData dataSource
+            chtOBJ.chart.FullSeriesCollection(1).Name = "=" & SplitSeries(dataSeries)(1)
+            chtOBJ.chart.FullSeriesCollection(1).XValues = "=" & xDataSource.Worksheet.Name & "!" & xDataSource.Address
             ResetDataSourceAuto = 0
             Debug.Print "》》" & chartName & "》》数据源更新完成>==>耗时" & CStr(Timer - t)
             Exit Function
@@ -274,24 +274,31 @@ Function 城市分布生成图专用函数(chartName As String) As Integer
     ws.Activate
     For Each chtOBJ In ws.ChartObjects
         If chtOBJ.Name = chartName Then
-            dataSeries = chtOBJ.Chart.SeriesCollection(1).Formula
+            dataSeries = chtOBJ.chart.SeriesCollection(1).Formula
             Set dataSource = Range(SplitSeries(dataSeries)(3))(1, 1)
             Set dataSource = RangeDown2Blank(dataSource)
             Set xDataSource = Range(SplitSeries(dataSeries)(2))(1, 1)
             Set xDataSource = RangeDown2Blank(xDataSource)
             Set newDataSource = RangeRight2Blank(RangeDown2Blank(Range(CitySummaryTableLocation_str)))
-            chtOBJ.Chart.SetSourceData Source:=Sheets(Range(CitySummaryTableLocation_str).Worksheet.Name).Range(newDataSource.Address)
-            chtOBJ.Chart.PlotBy = xlColumns
+            chtOBJ.chart.SetSourceData Source:=Sheets(Range(CitySummaryTableLocation_str).Worksheet.Name).Range(newDataSource.Address)
+            chtOBJ.chart.PlotBy = xlColumns
             If newDataSource.Rows.Count > 12 Then
-                chtOBJ.Chart.SetElement (msoElementDataLabelNone)
+                chtOBJ.chart.SetElement (msoElementDataLabelNone)
             Else
-                chtOBJ.Chart.SetElement (msoElementDataLabelOutSideEnd)
+                chtOBJ.chart.SetElement (msoElementDataLabelOutSideEnd)
             End If
             If ThisWorkbook.Sheets(ConfigSheetName).Range("$B$1") = "省级" Then
-                chtOBJ.Chart.ChartTitle.text = "各城市属性分布"
+                chtOBJ.chart.ChartTitle.text = "各城市属性分布"
             Else
-                chtOBJ.Chart.ChartTitle.text = "各区县属性分布"
+                chtOBJ.chart.ChartTitle.text = "各区县属性分布"
             End If
+            Dim series_i As series
+            For Each series_i In chtOBJ.chart.FullSeriesCollection
+                If series_i.Name = "合计" Then
+                    series_i.IsFiltered = True
+                    Exit For
+                End If
+            Next series_i
             城市分布生成图专用函数 = 0
             Debug.Print "》》" & chartName & "》》数据源更新完成>==>耗时" & CStr(Timer - t)
             Exit Function
@@ -455,7 +462,7 @@ Function 分离饼图数据标签格式化专用函数(chartName As String) As I
     For Each chtOBJ In picWorksheet.ChartObjects
         If chtOBJ.Name = chartName Then
             Set targetChtOBJ = chtOBJ
-            targetChtOBJ.Chart.SetElement (msoElementDataLabelBestFit)
+            targetChtOBJ.chart.SetElement (msoElementDataLabelBestFit)
             Exit For
         End If
     Next chtOBJ
@@ -464,10 +471,10 @@ Function 分离饼图数据标签格式化专用函数(chartName As String) As I
         Exit Function
     End If
     Dim points0 As points, point_i As Point, pointCount As Long, deputyCount As Long
-    Set points0 = targetChtOBJ.Chart.FullSeriesCollection(1).points
+    Set points0 = targetChtOBJ.chart.FullSeriesCollection(1).points
     pointCount = points0.Count
     deputyCount = pointCount - 11
-    targetChtOBJ.Chart.ChartGroups(1).SplitValue = deputyCount
+    targetChtOBJ.chart.ChartGroups(1).SplitValue = deputyCount
     Dim topLocation As Long, bottomLocation As Long, leftLocation As Long, dataLabelW As Long, dataLabelH As Long
     topLocation = 40
     leftLocation = 525
@@ -479,7 +486,7 @@ Function 分离饼图数据标签格式化专用函数(chartName As String) As I
     For cycleCount = 9 To pointCount
         currentTopLocation = (cycleCount - 9) * (dataLabelH + 5)
         If currentTopLocation < bottomLocation Then
-            With targetChtOBJ.Chart.FullSeriesCollection(1).points(cycleCount).DataLabel
+            With targetChtOBJ.chart.FullSeriesCollection(1).points(cycleCount).DataLabel
                 .ShowValue = True
                 .ShowCategoryName = True
                 .ShowPercentage = False
@@ -489,7 +496,7 @@ Function 分离饼图数据标签格式化专用函数(chartName As String) As I
                 .Top = currentTopLocation
             End With
         Else
-            With targetChtOBJ.Chart.FullSeriesCollection(1).points(cycleCount).DataLabel
+            With targetChtOBJ.chart.FullSeriesCollection(1).points(cycleCount).DataLabel
                 .ShowValue = False
                 .ShowCategoryName = False
                 .ShowPercentage = False
@@ -644,7 +651,7 @@ Sub 制作图表()
         If sourceRange.Rows.Count > 20 Then
             Set classificationChart = chartSheet.ChartObjects.Add(Left:=0, Top:=topOffset, Width:=1310, Height:=300)
             '下面的属性是只读的，只能select了
-            classificationChart.Chart.PlotArea.Select
+            classificationChart.chart.PlotArea.Select
             Selection.Width = 1258
             Selection.Left = 65
         Else
@@ -665,27 +672,27 @@ Sub 制作图表()
             End If
         Next shp
         classificationChart.Name = CStr(classificationAddress.Offset(0, -1).Value) & "柱状图"
-        classificationChart.Chart.SetSourceData Source:=sourceRange
-        classificationChart.Chart.SetElement (msoElementDataLabelOutSideEnd)
-        classificationChart.Chart.ChartType = xlColumnClustered
-        classificationChart.Chart.FullSeriesCollection(1).ChartType = xlColumnClustered
-        classificationChart.Chart.FullSeriesCollection(1).AxisGroup = 1
-        classificationChart.Chart.FullSeriesCollection(2).ChartType = xlLine
-        classificationChart.Chart.FullSeriesCollection(2).AxisGroup = 1
-        classificationChart.Chart.FullSeriesCollection(2).AxisGroup = 2
-        classificationChart.Chart.SetElement (msoElementChartTitleAboveChart)
-        classificationChart.Chart.SetElement (msoElementLegendBottom)
-        With classificationChart.Chart
+        classificationChart.chart.SetSourceData Source:=sourceRange
+        classificationChart.chart.SetElement (msoElementDataLabelOutSideEnd)
+        classificationChart.chart.ChartType = xlColumnClustered
+        classificationChart.chart.FullSeriesCollection(1).ChartType = xlColumnClustered
+        classificationChart.chart.FullSeriesCollection(1).AxisGroup = 1
+        classificationChart.chart.FullSeriesCollection(2).ChartType = xlLine
+        classificationChart.chart.FullSeriesCollection(2).AxisGroup = 1
+        classificationChart.chart.FullSeriesCollection(2).AxisGroup = 2
+        classificationChart.chart.SetElement (msoElementChartTitleAboveChart)
+        classificationChart.chart.SetElement (msoElementLegendBottom)
+        With classificationChart.chart
             .FullSeriesCollection(2).ApplyDataLabels
             .FullSeriesCollection(2).DataLabels.Position = xlLabelPositionAbove
         End With
         If sourceRange.Rows.Count > 55 Then
-            classificationChart.Chart.FullSeriesCollection(2).DataLabels.Delete
+            classificationChart.chart.FullSeriesCollection(2).DataLabels.Delete
         End If
         If sourceRange.Rows.Count > 100 Then
-            classificationChart.Chart.FullSeriesCollection(1).DataLabels.Delete
+            classificationChart.chart.FullSeriesCollection(1).DataLabels.Delete
         End If
-        classificationChart.Chart.ChartTitle.text = (CStr(classificationAddress.Offset(0, -1).Value) & "分布")
+        classificationChart.chart.ChartTitle.text = (CStr(classificationAddress.Offset(0, -1).Value) & "分布")
         If sourceRange.Rows.Count <= 20 Then
             Dim tablePicSourceRange As Range
             Dim tablePic As Picture
