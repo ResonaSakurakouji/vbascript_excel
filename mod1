@@ -459,7 +459,7 @@ Function 分离饼图数据标签格式化专用函数(chartName As String) As I
     targetChtOBJ.Chart.ChartGroups(1).SplitValue = deputyCount
     Dim topLocation As Long, bottomLocation As Long, leftLocation As Long, dataLabelW As Long, dataLabelH As Long
     topLocation = 40
-    leftLocation = 540
+    leftLocation = 525
     dataLabelW = 100
     dataLabelH = 15
     bottomLocation = 435 - dataLabelH - 5
