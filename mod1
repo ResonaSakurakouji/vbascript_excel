@@ -444,7 +444,7 @@ Function 分离饼图数据标签格式化专用函数(chartName As String) As I
     For Each chtOBJ In picWorksheet.ChartObjects
         If chtOBJ.Name = chartName Then
             Set targetChtOBJ = chtOBJ
-            targetChtOBJ.SetElement (msoElementDataLabelBestFit)
+            targetChtOBJ.Chart.SetElement (msoElementDataLabelBestFit)
             Exit For
         End If
     Next chtOBJ
@@ -462,20 +462,27 @@ Function 分离饼图数据标签格式化专用函数(chartName As String) As I
     leftLocation = 540
     dataLabelW = 100
     dataLabelH = 15
-    bottomLocation = 400 - dataLabelH - 5
+    bottomLocation = 435 - dataLabelH - 5
     Dim cycleCount As Long
     Dim currentTopLocation As Long
-    For cycleCount = 11 To pointCount
-        currentTopLocation = (cycleCount - 11) * (dataLabelH + 5)
+    For cycleCount = 9 To pointCount
+        currentTopLocation = (cycleCount - 9) * (dataLabelH + 5)
         If currentTopLocation < bottomLocation Then
             With targetChtOBJ.Chart.FullSeriesCollection(1).points(cycleCount).DataLabel
-                .Left = leftLocation
-                .Top = currentTopLocation
+                .ShowValue = True
+                .ShowCategoryName = True
+                .ShowPercentage = False
                 .Width = dataLabelW
                 .Height = dataLabelH
+                .Left = leftLocation
+                .Top = currentTopLocation
             End With
         Else
-            targetChtOBJ.Chart.FullSeriesCollection(1).points(cycleCount).DataLabel.Delete
+            With targetChtOBJ.Chart.FullSeriesCollection(1).points(cycleCount).DataLabel
+                .ShowValue = False
+                .ShowCategoryName = False
+                .ShowPercentage = False
+            End With
         End If
     Next cycleCount
     分离饼图数据标签格式化专用函数 = 0
