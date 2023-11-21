@@ -507,7 +507,7 @@ Function 分离饼图数据标签格式化专用函数(chartName As String) As I
     分离饼图数据标签格式化专用函数 = 0
 LessGroups:
     分离饼图数据标签格式化专用函数 = 1
-    Exit Function
+    targetChtOBJ.Chart.ChartGroups(1).SplitValue = 1
 End Function
 
 Function GetFolderPath(filePath As String) As String
@@ -863,6 +863,7 @@ Sub 递归一键兼容性保存(targetSavePath As String)
 End Sub
 
 Sub 递归一键操作全家桶()
+    
     Dim t, t1
     t = Timer
     Dim rubbish As Integer
@@ -900,4 +901,7 @@ Sub 递归一键操作全家桶()
     Debug.Print Chr(10) & "递归任务全部完成>==>耗时" & CStr(Timer - t)
 End Sub
 
-
+Sub 远程一键递归()
+    Application.Wait Now + TimeValue("00:00:20")
+    Call 递归一键操作全家桶
+End Sub
