@@ -474,7 +474,8 @@ Function 分离饼图数据标签格式化专用函数(chartName As String) As I
     Set points0 = targetChtOBJ.Chart.FullSeriesCollection(1).Points
     pointCount = points0.Count
     deputyCount = pointCount - 11
-    targetChtOBJ.Chart.ChartGroups(1).SplitValue = deputyCount
+    On Error GoTo LessGroups
+        targetChtOBJ.Chart.ChartGroups(1).SplitValue = deputyCount
     Dim topLocation As Long, bottomLocation As Long, leftLocation As Long, dataLabelW As Long, dataLabelH As Long
     topLocation = 40
     leftLocation = 525
@@ -504,6 +505,9 @@ Function 分离饼图数据标签格式化专用函数(chartName As String) As I
         End If
     Next cycleCount
     分离饼图数据标签格式化专用函数 = 0
+LessGroups:
+    分离饼图数据标签格式化专用函数 = 1
+    Exit Function
 End Function
 
 Function GetFolderPath(filePath As String) As String
@@ -895,3 +899,5 @@ Sub 递归一键操作全家桶()
     Set fso = Nothing
     Debug.Print Chr(10) & "递归任务全部完成>==>耗时" & CStr(Timer - t)
 End Sub
+
+
