@@ -408,8 +408,8 @@ Function AutoPastePicture3() As Integer
             Dim pic As Picture
             For Each pic In chartSheet.Pictures
                 If pic.Name = CStr(classNameList(i) & "统计表") Then
-                    Application.Wait Now + TimeValue("00:00:02")
                     pic.Copy
+                    Application.Wait Now + TimeValue("00:00:02")
                     noTableFlag = False
                     Exit For
                 End If
@@ -425,26 +425,32 @@ Function AutoPastePicture3() As Integer
                 Debug.Print "》》" & CStr(classNameList(i)) & "》》表格图粘贴完成>==>耗时" & CStr(Timer - t)
             End If
             t = Timer
-            Application.Wait Now + TimeValue("00:00:02")
             Dim errorNAFlag As Boolean
             errorNAFlag = False
             On Error GoTo chartNA
                 chartSheet.ChartObjects(CStr(classNameList(i) & "柱状图")).Copy
             If errorNAFlag = False Then
-                Set chartPic = ThisWorkbook.Sheets(SummarySheetName_str).Pictures.Paste
-                If noTableFlag = False Then
-                    With chartPic
-                        .Left = ThisWorkbook.Sheets(SummarySheetName_str).Range(currentCell.Offset(0, 10).Address).Left
-                        .Top = ThisWorkbook.Sheets(SummarySheetName_str).Range(currentCell.Offset(0, 10).Address).Top
-                    End With
+                Dim ramSer As Series
+                Set ramSer = chartSheet.ChartObjects(CStr(classNameList(i) & "柱状图")).Chart.SeriesCollection(1)
+                If ramSer.Values(1) > 0 Then
+                    Application.Wait Now + TimeValue("00:00:02")
+                    Set chartPic = ThisWorkbook.Sheets(SummarySheetName_str).Pictures.Paste
+                    If noTableFlag = False Then
+                        With chartPic
+                            .Left = ThisWorkbook.Sheets(SummarySheetName_str).Range(currentCell.Offset(0, 10).Address).Left
+                            .Top = ThisWorkbook.Sheets(SummarySheetName_str).Range(currentCell.Offset(0, 10).Address).Top
+                        End With
+                    Else
+                        With chartPic
+                            .Left = ThisWorkbook.Sheets(SummarySheetName_str).Range(currentCell.Address).Left
+                            .Top = ThisWorkbook.Sheets(SummarySheetName_str).Range(currentCell.Address).Top
+                        End With
+                    End If
+                    rubbish3 = ClearWindowsClipboard()
+                    Debug.Print "》》" & CStr(classNameList(i)) & "》》统计图粘贴完成>==>耗时" & CStr(Timer - t)
                 Else
-                    With chartPic
-                        .Left = ThisWorkbook.Sheets(SummarySheetName_str).Range(currentCell.Address).Left
-                        .Top = ThisWorkbook.Sheets(SummarySheetName_str).Range(currentCell.Address).Top
-                    End With
+                    Debug.Print "》》" & CStr(classNameList(i)) & "》》统计图无有效值，不再粘贴>==>耗时" & CStr(Timer - t)
                 End If
-                rubbish3 = ClearWindowsClipboard()
-                Debug.Print "》》" & CStr(classNameList(i)) & "》》统计图粘贴完成>==>耗时" & CStr(Timer - t)
             End If
             errorNAFlag = False
         End If
@@ -905,5 +911,3 @@ Sub 远程一键递归()
     Application.Wait Now + TimeValue("00:00:20")
     Call 递归一键操作全家桶
 End Sub
-
-
