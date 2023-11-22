@@ -342,6 +342,16 @@ Function AutoPastePicture1() As Integer
                 .Left = ThisWorkbook.Sheets(SummarySheetName_str).Range(tablePicPasteLocationList(i)).Left
                 .Top = ThisWorkbook.Sheets(SummarySheetName_str).Range(tablePicPasteLocationList(i)).Top
             End With
+            Dim targetHeight As Integer
+            targetHeight = 300
+            If tablePic.Height > targetHeight Then
+                Dim scaleFactor As Double
+                scaleFactor = targetHeight / tablePic.Height
+                With tablePic
+                    .Height = targetHeight
+                    .Width = tablePic.Width * scaleFactor
+                End With
+            End If
             Dim rubbish3 As Integer
             rubbish3 = ClearWindowsClipboard()
             Debug.Print "》》" & CStr(tablePicPasteLocationList(i)) & "》》表格图粘贴完成>==>耗时" & CStr(Timer - t)
