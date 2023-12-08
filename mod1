@@ -337,6 +337,7 @@ Function AutoPastePicture1() As Integer
             Set tws = tablePicSourceRange.Parent
             tws.Activate
             tablePicSourceRange.Copy
+            Application.Wait Now + TimeValue("00:00:02")
             Set tablePic = ThisWorkbook.Sheets(SummarySheetName_str).Pictures.Paste
             With tablePic
                 .Left = ThisWorkbook.Sheets(SummarySheetName_str).Range(tablePicPasteLocationList(i)).Left
@@ -378,8 +379,8 @@ Function AutoPastePicture2() As Integer
     Dim chartPic As Picture
     For i = 1 To 32
         If CStr(SummaryPicNameList(i)) <> "" Then
-            t = Timer
             chartSheet.ChartObjects(CStr(SummaryPicNameList(i))).Copy
+            t = Timer
             Application.Wait Now + TimeValue("00:00:02")
             Set chartPic = ThisWorkbook.Sheets(SummarySheetName_str).Pictures.Paste
             With chartPic
@@ -783,12 +784,17 @@ Sub 一键粘贴图片()
     currentWs.Activate
     rubbish = AutoPastePicture1()
     rubbish = AutoPastePicture2()
+    Application.ScreenUpdating = True
+    Application.EnableEvents = True
+    ws.Activate
+    ActiveWindow.SmallScroll Down:=512
+    Application.Wait Now + TimeValue("00:00:02")
+    ActiveWindow.SmallScroll Up:=512
+    Application.Wait Now + TimeValue("00:00:02")
     rubbish = AutoPastePicture3()
     
     ThisWorkbook.Worksheets(ChartBuilderSheetName_str).Select
     Debug.Print "》图表粘贴全部完成>==>耗时" & CStr(Timer - t)
-    Application.ScreenUpdating = True
-    Application.EnableEvents = True
 End Sub
 
 Sub 一键兼容性保存()
@@ -921,3 +927,4 @@ Sub 远程一键递归()
     Application.Wait Now + TimeValue("00:00:20")
     Call 递归一键操作全家桶
 End Sub
+
