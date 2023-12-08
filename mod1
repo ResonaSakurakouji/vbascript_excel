@@ -379,8 +379,8 @@ Function AutoPastePicture2() As Integer
     For i = 1 To 32
         If CStr(SummaryPicNameList(i)) <> "" Then
             t = Timer
-            Application.Wait Now + TimeValue("00:00:02")
             chartSheet.ChartObjects(CStr(SummaryPicNameList(i))).Copy
+            Application.Wait Now + TimeValue("00:00:02")
             Set chartPic = ThisWorkbook.Sheets(SummarySheetName_str).Pictures.Paste
             With chartPic
                 .Left = ThisWorkbook.Sheets(SummarySheetName_str).Range(SummaryPicLocationList(i)).Left
