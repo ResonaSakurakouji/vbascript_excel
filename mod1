@@ -10,7 +10,11 @@ Option Explicit
         ByVal lpParameter As LongPtr, _
         ByVal dwCreationFlags As Long, _
         ByRef lpThreadId As Long) As LongPtr
+    Private Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As LongPtr)
+#Else
+    Private Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As Long)
 #End If
+
 Public Const ConfigTitleRangeLocation_str As String = "配!$1:$1"
 Public Const ConfigTitleKeywordLocation_str As String = "配!$A:$A"
 Public Const ConfigSheetName As String = "配"
@@ -84,7 +88,7 @@ Function GetConfigKeywordString(keywordLocation As String) As String
     Next cell_i
 ErrorNA:
     MsgBox keywordLocation & Chr(10) & " -> Function@GetConfigKeywordString", , "结果不存在"
-
+    On Error GoTo 0
 End Function
 
 Function GetConfigTitleRange(titleName As String) As Range
@@ -106,6 +110,21 @@ Function GetConfigTitleRange(titleName As String) As Range
     Next cell_i
 ErrorNA:
     MsgBox titleName & Chr(10) & " -> Function@GetConfigTitleRange", , "结果不存在"
+    On Error GoTo 0
+End Function
+
+Function RangeDown2BlankFast(firstCell As Range) As Range ' 不适合拓选包含公式的单元格
+    Dim targetCell As Range
+    Set targetCell = firstCell
+    
+    Dim lastCell As Range
+    Set lastCell = firstCell.End(xlDown)
+    
+    If lastCell.Row > firstCell.Row Then
+        Set RangeDown2BlankFast = firstCell.Resize(lastCell.Row - firstCell.Row + 1)
+    Else
+        Set RangeDown2BlankFast = firstCell
+    End If
 End Function
 
 Function RangeDown2Blank(firstCell As Range) As Range
@@ -216,6 +235,7 @@ Function FormatText_GS(targetCell As Range) As Integer
     FormatText_GS = 0
 ErrorText:
     errorFlag = True
+    On Error GoTo 0
 End Function
 
 Function SplitSeries(seriesText As String) As Variant
@@ -470,6 +490,7 @@ Function AutoPastePicture3() As Integer
     Exit Function
 chartNA:
     errorNAFlag = True
+    On Error GoTo 0
 End Function
 
 Function 分离饼图数据标签格式化专用函数(chartName As String) As Integer
@@ -559,6 +580,58 @@ Function ClearWindowsClipboard() As Integer
     ClearWindowsClipboard = 0
 End Function
 
+Sub TryCopyOBJ(obj As Object)
+    Dim try_count As Integer, sleep_mSecond As Long
+    Dim is_copied As Boolean
+    
+    try_count = 0
+    is_copied = False
+    
+    Do While try_count < 5 And Not is_copied
+        On Error Resume Next
+        obj.Copy
+        If Err.Number = 0 Then
+            is_copied = True
+        Else
+            try_count = try_count + 1
+            sleep_mSecond = (2 ^ try_count) * 125 ' 0.25、0.5、1、2、4秒的等待时间
+            Sleep sleep_mSecond
+        End If
+        On Error GoTo 0
+    Loop
+    
+    If Not is_copied Then
+        Debug.Print "！》无法完成复制操作，程序中断。"
+        Exit Sub
+    End If
+End Sub
+
+Function TryPicPaste2Sheet(targetSheet As Worksheet) As Picture ' 粘贴信息源自前文copy
+    Dim try_count As Integer, sleep_mSecond As Long
+    Dim is_pasted As Boolean
+    
+    try_count = 0
+    is_pasted = False
+    
+    Do While try_count < 5 And Not is_pasted
+        On Error Resume Next
+        Set TryPicPaste2Sheet = targetSheet.Pictures.Paste
+        If Err.Number = 0 Then
+            is_pasted = True
+        Else
+            try_count = try_count + 1
+            sleep_mSecond = (2 ^ try_count) * 125 ' 0.25、0.5、1、2、4秒的等待时间
+            Sleep sleep_mSecond
+        End If
+        On Error GoTo 0
+    Loop
+    
+    If Not is_pasted Then
+        Debug.Print "！》无法完成粘贴操作，程序中断。"
+        Exit Function
+    End If
+End Function
+
 Sub 一键拆分明细()
     Dim t
     t = Timer
@@ -573,11 +646,11 @@ Sub 一键拆分明细()
     Dim ws As Worksheet
     Dim saveSheetNameRange As Range
     Dim saveSheetName(1 To 32) As String
-    Set saveSheetNameRange = RangeDown2Blank(GetConfigTitleRange(KeyFiledsTitleLocationShort_str).Offset(1, 0))
+    Set saveSheetNameRange = RangeDown2BlankFast(GetConfigTitleRange(KeyFiledsTitleLocationShort_str).Offset(1, 0))
     Dim keywordField As String
     keywordField = GetConfigKeywordString(ConfigTitleKeyword_str)
     Dim classFullNameRange As Range
-    Set classFullNameRange = RangeDown2Blank(GetConfigTitleRange(KeyFiledsTitleLocation_str).Offset(1, 0))
+    Set classFullNameRange = RangeDown2BlankFast(GetConfigTitleRange(KeyFiledsTitleLocation_str).Offset(1, 0))
     Dim classFullName(1 To 32) As String
     Dim i As Long, b As Boolean, rubbish As Integer
     b = False
@@ -693,18 +766,18 @@ Sub 制作图表()
             End If
         Next shp
         classificationChart.Name = CStr(classificationAddress.Offset(0, -1).Value) & "柱状图"
-        classificationChart.Chart.SetSourceData Source:=sourceRange
-        classificationChart.Chart.PlotBy = xlColumns
-        classificationChart.Chart.SetElement (msoElementDataLabelOutSideEnd)
-        classificationChart.Chart.ChartType = xlColumnClustered
-        classificationChart.Chart.FullSeriesCollection(1).ChartType = xlColumnClustered
-        classificationChart.Chart.FullSeriesCollection(1).AxisGroup = 1
-        classificationChart.Chart.FullSeriesCollection(2).ChartType = xlLine
-        classificationChart.Chart.FullSeriesCollection(2).AxisGroup = 1
-        classificationChart.Chart.FullSeriesCollection(2).AxisGroup = 2
-        classificationChart.Chart.SetElement (msoElementChartTitleAboveChart)
-        classificationChart.Chart.SetElement (msoElementLegendBottom)
         With classificationChart.Chart
+            .SetSourceData Source:=sourceRange
+            .PlotBy = xlColumns
+            .SetElement (msoElementDataLabelOutSideEnd)
+            .ChartType = xlColumnClustered
+            .FullSeriesCollection(1).ChartType = xlColumnClustered
+            .FullSeriesCollection(1).AxisGroup = 1
+            .FullSeriesCollection(2).ChartType = xlLine
+            .FullSeriesCollection(2).AxisGroup = 1
+            .FullSeriesCollection(2).AxisGroup = 2
+            .SetElement (msoElementChartTitleAboveChart)
+            .SetElement (msoElementLegendBottom)
             .FullSeriesCollection(2).ApplyDataLabels
             .FullSeriesCollection(2).DataLabels.Position = xlLabelPositionAbove
         End With
@@ -784,14 +857,9 @@ Sub 一键粘贴图片()
     currentWs.Activate
     rubbish = AutoPastePicture1()
     rubbish = AutoPastePicture2()
+    rubbish = AutoPastePicture3()
     Application.ScreenUpdating = True
     Application.EnableEvents = True
-    ws.Activate
-    ActiveWindow.SmallScroll Down:=512
-    Application.Wait Now + TimeValue("00:00:02")
-    ActiveWindow.SmallScroll Up:=512
-    Application.Wait Now + TimeValue("00:00:02")
-    rubbish = AutoPastePicture3()
     
     ThisWorkbook.Worksheets(ChartBuilderSheetName_str).Select
     Debug.Print "》图表粘贴全部完成>==>耗时" & CStr(Timer - t)
@@ -927,4 +995,3 @@ Sub 远程一键递归()
     Application.Wait Now + TimeValue("00:00:20")
     Call 递归一键操作全家桶
 End Sub
-
