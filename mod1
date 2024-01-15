@@ -356,9 +356,8 @@ Function AutoPastePicture1() As Integer
             Dim tws As Worksheet
             Set tws = tablePicSourceRange.Parent
             tws.Activate
-            tablePicSourceRange.Copy
-            Application.Wait Now + TimeValue("00:00:02")
-            Set tablePic = ThisWorkbook.Sheets(SummarySheetName_str).Pictures.Paste
+            Call TryCopyOBJ(tablePicSourceRange)
+            Set tablePic = TryPicPaste2Sheet(ThisWorkbook.Sheets(SummarySheetName_str))
             With tablePic
                 .Left = ThisWorkbook.Sheets(SummarySheetName_str).Range(tablePicPasteLocationList(i)).Left
                 .Top = ThisWorkbook.Sheets(SummarySheetName_str).Range(tablePicPasteLocationList(i)).Top
@@ -374,7 +373,7 @@ Function AutoPastePicture1() As Integer
                 End With
             End If
             Dim rubbish3 As Integer
-            rubbish3 = ClearWindowsClipboard()
+            ' rubbish3 = ClearWindowsClipboard()
             Debug.Print "》》" & CStr(tablePicPasteLocationList(i)) & "》》表格图粘贴完成>==>耗时" & CStr(Timer - t)
         End If
     Next i
@@ -399,16 +398,14 @@ Function AutoPastePicture2() As Integer
     Dim chartPic As Picture
     For i = 1 To 32
         If CStr(SummaryPicNameList(i)) <> "" Then
-            chartSheet.ChartObjects(CStr(SummaryPicNameList(i))).Copy
+            Call TryCopyOBJ(chartSheet.ChartObjects(CStr(SummaryPicNameList(i))))
             t = Timer
-            Application.Wait Now + TimeValue("00:00:02")
-            Set chartPic = ThisWorkbook.Sheets(SummarySheetName_str).Pictures.Paste
+            Set chartPic = TryPicPaste2Sheet(ThisWorkbook.Sheets(SummarySheetName_str))
             With chartPic
                 .Left = ThisWorkbook.Sheets(SummarySheetName_str).Range(SummaryPicLocationList(i)).Left
                 .Top = ThisWorkbook.Sheets(SummarySheetName_str).Range(SummaryPicLocationList(i)).Top
             End With
             Dim rubbish3 As Integer
-            rubbish3 = ClearWindowsClipboard()
             Debug.Print "》》" & SummaryPicNameList(i) & "》》统计图粘贴完成>==>耗时" & CStr(Timer - t)
         End If
     Next i
@@ -439,14 +436,13 @@ Function AutoPastePicture3() As Integer
             Dim pic As Picture
             For Each pic In chartSheet.Pictures
                 If pic.Name = CStr(classNameList(i) & "统计表") Then
-                    pic.Copy
-                    Application.Wait Now + TimeValue("00:00:02")
+                    Call TryCopyOBJ(pic)
                     noTableFlag = False
                     Exit For
                 End If
             Next pic
             If noTableFlag = False Then
-                Set chartPic = ThisWorkbook.Sheets(SummarySheetName_str).Pictures.Paste
+                Set chartPic = TryPicPaste2Sheet(ThisWorkbook.Sheets(SummarySheetName_str))
                 With chartPic
                     .Left = ThisWorkbook.Sheets(SummarySheetName_str).Range(currentCell.Address).Left
                     .Top = ThisWorkbook.Sheets(SummarySheetName_str).Range(currentCell.Address).Top
@@ -459,13 +455,13 @@ Function AutoPastePicture3() As Integer
             Dim errorNAFlag As Boolean
             errorNAFlag = False
             On Error GoTo chartNA
-                chartSheet.ChartObjects(CStr(classNameList(i) & "柱状图")).Copy
+                Call TryCopyOBJ(chartSheet.ChartObjects(CStr(classNameList(i) & "柱状图")))
+                On Error GoTo 0
             If errorNAFlag = False Then
                 Dim ramSer As Series
                 Set ramSer = chartSheet.ChartObjects(CStr(classNameList(i) & "柱状图")).Chart.SeriesCollection(1)
                 If ramSer.Values(1) > 0 Then
-                    Application.Wait Now + TimeValue("00:00:02")
-                    Set chartPic = ThisWorkbook.Sheets(SummarySheetName_str).Pictures.Paste
+                    Set chartPic = TryPicPaste2Sheet(ThisWorkbook.Sheets(SummarySheetName_str))
                     If noTableFlag = False Then
                         With chartPic
                             .Left = ThisWorkbook.Sheets(SummarySheetName_str).Range(currentCell.Offset(0, 10).Address).Left
@@ -565,10 +561,8 @@ Function PasteFromAnotherWorkbook(fromWorkbookName As String, fromWorksheetName 
     
     Set destinationWorkbook = ThisWorkbook
     Set destinationSheet = destinationWorkbook.Sheets(DetailSheetName_str)
-    'Application.Wait Now + TimeValue("00:00:01")
     
     sourceSheet.UsedRange.Copy destinationSheet.Range("A1")
-    'Application.Wait Now + TimeValue("00:00:01")
     
     sourceWorkbook.Close SaveChanges:=False
 End Function
@@ -581,21 +575,24 @@ Function ClearWindowsClipboard() As Integer
 End Function
 
 Sub TryCopyOBJ(obj As Object)
-    Dim try_count As Integer, sleep_mSecond As Long
+    Dim try_count As Integer, sleep_mSecond As String
+    Dim startTime As Double
     Dim is_copied As Boolean
     
     try_count = 0
     is_copied = False
     
-    Do While try_count < 5 And Not is_copied
+    Do While try_count < 6 And Not is_copied
+        If try_count <> 0 Then
+            sleep_mSecond = "00:00:0" & CStr(try_count)
+            Application.Wait Now + TimeValue(sleep_mSecond)
+        End If
         On Error Resume Next
         obj.Copy
         If Err.Number = 0 Then
             is_copied = True
         Else
             try_count = try_count + 1
-            sleep_mSecond = (2 ^ try_count) * 125 ' 0.25、0.5、1、2、4秒的等待时间
-            Sleep sleep_mSecond
         End If
         On Error GoTo 0
     Loop
@@ -607,21 +604,25 @@ Sub TryCopyOBJ(obj As Object)
 End Sub
 
 Function TryPicPaste2Sheet(targetSheet As Worksheet) As Picture ' 粘贴信息源自前文copy
-    Dim try_count As Integer, sleep_mSecond As Long
+    Dim try_count As Integer, sleep_mSecond As String
+    Dim startTime As Double
     Dim is_pasted As Boolean
     
     try_count = 0
     is_pasted = False
     
-    Do While try_count < 5 And Not is_pasted
+    Do While try_count < 6 And Not is_pasted
+        startTime = Timer
+        If try_count <> 0 Then
+            sleep_mSecond = "00:00:0" & CStr(try_count)
+            Application.Wait Now + TimeValue(sleep_mSecond)
+        End If
         On Error Resume Next
         Set TryPicPaste2Sheet = targetSheet.Pictures.Paste
         If Err.Number = 0 Then
             is_pasted = True
         Else
             try_count = try_count + 1
-            sleep_mSecond = (2 ^ try_count) * 125 ' 0.25、0.5、1、2、4秒的等待时间
-            Sleep sleep_mSecond
         End If
         On Error GoTo 0
     Loop
@@ -795,10 +796,8 @@ Sub 制作图表()
             Dim ws2 As Worksheet
             Set ws2 = sourceRange.Parent
             ws2.Activate
-            tablePicSourceRange.Copy
-            Application.Wait Now + TimeValue("00:00:02")
-            Set tablePic = ThisWorkbook.Sheets(ChartBuilderSheetName_str).Pictures.Paste
-            
+            Call TryCopyOBJ(tablePicSourceRange)
+            Set tablePic = TryPicPaste2Sheet(ThisWorkbook.Sheets(ChartBuilderSheetName_str))
             With tablePic
                 .Left = 0
                 .Top = topOffset
