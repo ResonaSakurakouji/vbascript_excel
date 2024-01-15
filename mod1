@@ -598,7 +598,7 @@ Sub TryCopyOBJ(obj As Object)
     Loop
     
     If Not is_copied Then
-        Debug.Print "！》无法完成复制操作，程序中断。"
+        Err.Raise vbObjectError + 9999, "复制失败！", "！》无法完成复制操作，程序中断。"
         Exit Sub
     End If
 End Sub
@@ -628,7 +628,7 @@ Function TryPicPaste2Sheet(targetSheet As Worksheet) As Picture ' 粘贴信息�
     Loop
     
     If Not is_pasted Then
-        Debug.Print "！》无法完成粘贴操作，程序中断。"
+        Err.Raise vbObjectError + 9999, "粘贴失败！", "！》无法完成粘贴操作，程序中断。"
         Exit Function
     End If
 End Function
