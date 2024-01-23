@@ -36,22 +36,78 @@ Public Const SummaryChart2Location_str As String = "汇总统计图粘贴至"
 Public Const OverviewKeywords_str As String = "概述："
 Public Const SummarySheetKeyFieldTitleLocation_str As String = "汇总!$C$1"
 
+Global gDetailsTitle_rng As Range ' 明细标题区域，应当全部一致
+Global gRAMTitle_rng As Range ' RAM标题区域，定义后不会更改
+Global gRAM_sheet As Worksheet ' RAM工作表，定义后不会更改
+Global gConfigTitleRange As Range ' 配置信息标题，定义后不会更改
+
+Function TryNewColorSheetR(sourceSheetName As String, Optional ByVal tail As String = "R", Optional ByVal color As Long = 0) As Worksheet
+    Dim sheetColor As Long
+    Dim newSheetName As String
+    newSheetName = sourceSheetName & tail
+    If tail = "R" Then
+        sheetColor = RGB(146, 208, 80)
+    Else
+        sheetColor = color
+    End If
+
+    ' 检查Sheet是否已存在
+    On Error Resume Next
+    Set TryNewColorSheetR = ThisWorkbook.Sheets(newSheetName)
+    On Error GoTo 0
+
+    ' 如果Sheet不存在，则创建并设置标签颜色
+    If TryNewColorSheetR Is Nothing Then
+        Set TryNewColorSheetR = ThisWorkbook.Sheets.Add(, ThisWorkbook.Sheets(ThisWorkbook.Sheets.Count))
+        TryNewColorSheetR.Name = newSheetName
+    End If
+        TryNewColorSheetR.Cells.Clear
+        TryNewColorSheetR.Tab.color = sheetColor
+End Function
+
+Function TrimDownRange(ByRef rng As Range) As Range
+    Dim lastRow As Long
+    If rng Is Nothing Then
+        Set TrimDownRange = Nothing
+        Exit Function
+    End If
+    ' 获取最后一个非空单元格的行号
+    lastRow = rng.Cells(rng.Rows.Count, 1).End(xlDown).Row
+    Set TrimDownRange = rng.Resize(lastRow - rng.Row + 1)
+End Function
+
+Sub Sheet2Values(ws As Worksheet)
+    ws.UsedRange.Value = ws.UsedRange.Value
+End Sub
+
+Sub PasteByVBA(sourceRange As Range, targetRange As Range)
+    Set sourceRange = TrimDownRange(sourceRange)
+    Set targetRange = targetRange.Resize(sourceRange.Rows.Count, sourceRange.Columns.Count)
+    targetRange.Value = sourceRange.Value
+End Sub
+
 Function Unique2RAMSheet() As Integer
-    Dim fromRange As Range, toRange As Range, detailTitle As Range, RAMTitle As Range, columnName As String
-    Set RAMTitle = Sheets(RAMSheetName).Range("$6:$6")
-    Sheets(RAMSheetName).Range("$7:$1048576").ClearContents
+    If gDetailsTitle_rng Is Nothing Then
+        Set gDetailsTitle_rng = ThisWorkbook.Sheets(DetailSheetName_str).Range("$1:$1")
+    End If
+    If gRAMTitle_rng Is Nothing Then
+        Set gRAMTitle_rng = ThisWorkbook.Sheets(RAMSheetName).Range("$6:$6")
+    End If
+    If gRAM_sheet Is Nothing Then
+        Set gRAM_sheet = ThisWorkbook.Sheets(RAMSheetName)
+    End If
+    
+    Dim fromRange As Range, toRange As Range, columnName As String
+    gRAM_sheet.Range("$A$7:$AF$1048576").Value = "" ' 第一次运行超级费时间（16秒 -> 0.3秒）
+    
     Dim cell_i As Range
-    For Each cell_i In RAMTitle
+    For Each cell_i In gRAMTitle_rng
         If cell_i.Value <> "" Then
             columnName = cell_i.Value
-            Set detailTitle = Sheets(DetailSheetName_str).Range("$1:$1")
-            Set fromRange = detailTitle.Find(columnName)
-            Set fromRange = fromRange.Resize(1024000, 1)
+            Set fromRange = gDetailsTitle_rng.Find(columnName).Resize(1024000, 1)
             Dim ws As Worksheet
-            Set ws = detailTitle.Parent
-            ws.Activate
             fromRange.Copy
-            Set toRange = RAMTitle.Find(columnName, LookIn:=xlFormulas)
+            Set toRange = gRAMTitle_rng.Find(columnName, LookIn:=xlFormulas)
             toRange.PasteSpecial Paste:=xlPasteValues, Operation:=xlNone, SkipBlanks:=False, Transpose:=False
             Application.CutCopyMode = False
             Set toRange = toRange.Resize(1024100, 1)
@@ -92,14 +148,16 @@ ErrorNA:
 End Function
 
 Function GetConfigTitleRange(titleName As String) As Range
-    Dim configTitleRange As Range
+    If gConfigTitleRange Is Nothing Then
+        Set gConfigTitleRange = Range(ConfigTitleRangeLocation_str)
+    End If
+    
     Dim col_index As Long
-    Set configTitleRange = Range(ConfigTitleRangeLocation_str)
     col_index = 1
     Dim cell_i As Range
-    For Each cell_i In configTitleRange
+    For Each cell_i In gConfigTitleRange
         If CStr(cell_i.Value) = titleName Then
-            Set GetConfigTitleRange = configTitleRange.Cells(1, col_index)
+            Set GetConfigTitleRange = gConfigTitleRange.Cells(1, col_index)
             Exit Function
         Else
             col_index = col_index + 1
@@ -223,13 +281,13 @@ Function FormatText_GS(targetCell As Range) As Integer
     searchTexts(4) = "其中拿地面积最大的是"
     searchTexts(5) = "，面积达到"
     
-    targetCell.Font.Color = RGB(255, 0, 0)
-    targetCell.Characters(1, 25).Font.Color = RGB(0, 0, 0)
+    targetCell.Font.color = RGB(255, 0, 0)
+    targetCell.Characters(1, 25).Font.color = RGB(0, 0, 0)
     For i = 1 To (UBound(searchTexts) - LBound(searchTexts) + 1)
         startPos = InStr(tempText, searchTexts(i))
         If startPos > 0 Then
             endPos = startPos + Len(searchTexts(i)) - 1
-            targetCell.Characters(startPos, Len(searchTexts(i))).Font.Color = RGB(0, 0, 0)
+            targetCell.Characters(startPos, Len(searchTexts(i))).Font.color = RGB(0, 0, 0)
         End If
     Next i
     FormatText_GS = 0
@@ -640,20 +698,31 @@ Sub 一键拆分明细()
     Application.Calculation = xlCalculationManual
     Application.EnableEvents = False
     Dim rubbish0 As Integer
-    rubbish0 = Unique2RAMSheet()
+    rubbish0 = Unique2RAMSheet() ' 22秒！！！！
     rubbish0 = WithoutStarString()
     Dim wb As Workbook
     Dim ws0 As Worksheet
+    
+    Set wb = ThisWorkbook
+    Set ws0 = wb.Sheets(DetailSheetName_str)
+    
     Dim ws As Worksheet
     Dim saveSheetNameRange As Range
     Dim saveSheetName(1 To 32) As String
     Set saveSheetNameRange = RangeDown2BlankFast(GetConfigTitleRange(KeyFiledsTitleLocationShort_str).Offset(1, 0))
     Dim keywordField As String
-    keywordField = GetConfigKeywordString(ConfigTitleKeyword_str)
+    keywordField = GetConfigKeywordString(ConfigTitleKeyword_str) ' 土地用途辅助
     Dim classFullNameRange As Range
     Set classFullNameRange = RangeDown2BlankFast(GetConfigTitleRange(KeyFiledsTitleLocation_str).Offset(1, 0))
     Dim classFullName(1 To 32) As String
     Dim i As Long, b As Boolean, rubbish As Integer
+    Dim titleRow As Range
+    Dim lastRow As Long
+    Dim columnIndex As Long
+    
+    Set titleRow = ws0.Rows(1)
+    columnIndex = Application.Match(keywordField, ws0.Rows(1), 0)
+    lastRow = ws0.Cells(ws0.Rows.Count, columnIndex).End(xlUp).Row
     b = False
     For i = 1 To 32
         If CStr(saveSheetNameRange(i, 1).Value) <> "" Then
@@ -661,8 +730,6 @@ Sub 一键拆分明细()
             classFullName(i) = CStr(classFullNameRange(i, 1).Value)
         End If
     Next i
-    Set wb = ThisWorkbook
-    Set ws0 = wb.Sheets(DetailSheetName_str)
     For i = 1 To 32
         If CStr(saveSheetNameRange(i, 1).Value) <> "" Then
             Dim t1
@@ -674,19 +741,16 @@ Sub 一键拆分明细()
                 End If
             Next ws
             If b = True Then
-                Application.DisplayAlerts = False
-                wb.Sheets(CStr(saveSheetNameRange(i, 1).Value)).Delete
-                Application.DisplayAlerts = True
+                Set ws = wb.Sheets(saveSheetName(i))
+                ws.Cells.ClearContents
+            Else
+                Set ws = wb.Sheets.Add(After:=wb.Sheets(wb.Sheets.Count - 7))
+                ws.Name = saveSheetName(i)
             End If
-            Set ws = wb.Sheets.Add(After:=wb.Sheets(wb.Sheets.Count - 7))
-            ws.Name = saveSheetName(i)
-            Dim lastRow As Long
-            Dim columnIndex As Long
-            columnIndex = Application.Match(keywordField, ws0.Rows(1), 0)
+            
             Dim i1 As Long
             Dim j As Long
-            lastRow = ws0.Cells(ws0.Rows.Count, columnIndex).End(xlUp).Row
-            ws0.Rows(1).Copy ws.Rows(1) ' 复制标题行
+            titleRow.Copy ws.Rows(1) ' 复制标题行
             For i1 = 2 To lastRow
                 If ws0.Cells(i1, columnIndex).Value = classFullName(i) Then
                     j = ws.Cells(ws.Rows.Count, columnIndex).End(xlUp).Row + 1
